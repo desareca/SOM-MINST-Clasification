@@ -56,7 +56,7 @@ El algoritmo de SOM (Kohonen, 1982), traducido del ingles mapas auto-organizados
 Un modelo de SOM esta compuesto por dos capas de neuronas. Por un lado, la capa de entrada, formada por $N$ neuronas (una neurona por cada dato de entrada), que se encarga de recibir y transmitir a la capa de salida la informacion procedente del exterior. Por otro lado, la  capa  de  salida,  formada  por $M$  neuronas,  que  es  la  encargada  de procesar   la   informacion,   crear   patrones   e   identificar   las   posibles   categorias. Normalmente, las neuronas de la capa de salida se organizan en un mapa bidimensional como se ha mencionado en el parrafo anterior, tal y como se muestra en la figura.
  
 <br> </br>
-<center><img src="som_example.png"></center>
+<center><img src="SOM_MNIST_clasification_files/figure-html/som_example.png"></center>
 <br> </br>
 <center>**Representacion de mapa autorganizado (SOM)**</center>
 <br> </br>
