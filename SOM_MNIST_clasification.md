@@ -1,0 +1,195 @@
+---
+title: "SOM MNIST Clasification"
+author: "desareca"
+date: "25-05-2020"
+output:
+  html_document: 
+    code_folding: hide
+    df_print: default
+    highlight: tango
+    keep_md: yes
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+
+
+# Resumen
+
+Los mapas autorganizados de Kohonen son un algoritmo que a partir de un proceso iterativo de comparacion con un conjunto de datos y cambios para aproximarse a los mismos, crea un modelo de esos mismos datos que puede servir para agruparlos por criterios de similitud; adicionalmente, este agrupamiento se produce de forma que la proyeccion de estos datos sobre el mapa distribuya sus caracteristicas de una forma gradual. El Mapa de Kohonen, SOM se usa para diferentes aplicaciones:
+
+
+- Clustering: se pueden agrupar datos del conjunto de entrada, atendiendo a diferentes criterios.
+
+- Visualizacion: este agrupamiento, como se realiza de una forma ordenada, permite visualizar al conjunto de entrada y descubrir caracteristicas nuevas o relaciones que no se habian previsto de antemano. Tambien permite visualizar la evolucion temporal de un conjunto de datos: proyectando un vector en etapas sucesivas sobre un mapa entrenado se ve como se va moviendo de una zona con unas caracteristicas determinadas a otra.
+
+- Clasificacion: aunque el entrenamiento del mapa no tiene en cuenta la etiqueta de clase o el tipo de cada uno de los vectores de entrada, una vez terminado el entrenamiento se puede asignar algun tipo de etiqueta a cada nodo, y se puede usar para clasificar datos desconocidos.
+
+- Interpolacion de una funcion: asignando valores numericos a cada uno de los nodos de la red de Kohonen, se pueden asignar esos valores numericos a los vectores de entrada: a cada vector (dato) de entrada le correspondera el numero o vector asignados a la salida mas cercana.
+
+- Cuantizacion vectorial: corresponde a la aplicacion de una entrada continua a una salida que esta discretizada, obteniendo a partir de un vector cualquiera el vector mas cercano de un conjunto previamente establecido. 
+
+
+A continuacion se vera la implementacion de mapas autorganizados para la reduccion dimensional, visualizacion de caracteristicas y clasificacion de imagenes.
+
+
+# Mapas autorganizados de Kohonen
+
+El algoritmo de SOM (Kohonen, 1982), traducido del ingles mapas auto-organizados, es un  modelo  de  redes  neuronales  de  aprendizaje  no  supervisado  competitivo.  Los modelos de redes neuronales se aplican a problemas de reconocimiento de patrones. Estas redes construyen clases a partir de los datos de entrenamiento no etiquetados $(x1, x2,...xN)$ mediante medidas de disimilitud, y tratan de identificar las particiones optimas (en realidad no se puede asegurar que sean las optimas, pero si seran aceptables) del conjunto de datos de entrada. Las  redes  neuronales  son  competitivas  en  cuanto  a que  las  neuronas  compiten  unas con  otras  por  activarse.  Cuando  se  trabaja  con  redes  neuronales  se  pretende  que cuando  se  presenten  los  datos  de  entrada  al modelo,  este  active  una  (o unas  pocas) neuronas de salida,las cuales se denominaran neuronas vencedoras. El proposito de este  aprendizaje  es  clasificar  los  datos que  se  introducen  en  la  red  y que, cuando  se introduzcan  objetos  que  pertenezcan  a  la  misma  categoria,  estos  activen  la  misma neurona de salida; se debe activar una y solo una. Dichas categorias deben ser creadas por la propia red, puesto que se trata de aprendizaje no supervisado. El objetivo de SOM es representar conjuntos de datos multidimensionales en una red de  menores  dimensiones,  habitualmente  en  un  espacio  bidimensional,  de  forma que dichos datos conserven la topologia inicial; es decir, que aquellos que son proximos en el espacio multidimensional, deben mantenerse proximos en el mapa bidimensional. Las topologias mas frecuentes son la rectangular y la hexagonal; en este trabajo se utiliza la rectangular. 
+
+
+Un modelo de SOM esta compuesto por dos capas de neuronas. Por un lado, la capa de entrada, formada por $N$ neuronas (una neurona por cada dato de entrada), que se encarga de recibir y transmitir a la capa de salida la informacion procedente del exterior. Por otro lado, la  capa  de  salida,  formada  por $M$  neuronas,  que  es  la  encargada  de procesar   la   informacion,   crear   patrones   e   identificar   las   posibles   categorias. Normalmente, las neuronas de la capa de salida se organizan en un mapa bidimensional como se ha mencionado en el parrafo anterior, tal y como se muestra en la figura.
+ 
+<br> </br>
+<center><img src="som_example.png"></center>
+<br> </br>
+<center>**Representacion de mapa autorganizado (SOM)**</center>
+<br> </br>
+
+
+La transmision entre las dos capas que forman la red es siempre hacia adelante; en otras palabras, la informacion se propaga siempre desde la capa de entrada hacia la capa de salida. Cada neurona de entrada $i$ esta conectada a cada una de las neuronas de salida $j$ mediante un peso $w_{ji}$. De esta forma, las neuronas de  salida  tienen  asociado  un  vector  de  pesos  $w_{j}$,llamado  vector  de  referencia  o *codebook*. Este vector es el vector promedio de la categoria representada por la neurona $j$.
+
+El algoritmo de SOM se divide en cinco etapas:
+
+1. En  la  inicializacion  se  le  asigna  a  cada  uno  de  los  nodos  un  vector  de  pesos aleatorio $w_{j}$.
+
+2. En la segunda etapa, o etapa de competicion, se selecciona, para cada dato de entrada $x_i$,el nodo $j$ al cual es mas proximo en terminos de similitud. Para ello se calcula la distancia euclidea del dato $x_i$ a cada uno de los vectores del *codebook*, y se elige aquella neurona a la cual esta distancia sea minima. A dicha neurona $j$ se le denomina neurona vencedora. 
+
+
+$$j = argmin \Arrowvert x_i - w_j \Arrowvert^2 \quad\quad (1\leq j\leq M)$$
+
+
+3. La siguiente etapa es la fase de cooperacion. Una vez terminada la etapa *2*, se vecinos a aquellos nodos $w_k$ cuya distancia a $w_j$ es minima; la funcion que elaciona dicha distancia se llama *tasa de vecindad* ($h=h(l_i-l_k)$). Esta funcion asigna mas o menos peso a los nodos vecinos en funcion de la distancia: cuanto mas proximo, mayor peso y viceversa ($h \in (0, 1)$).
+
+
+Por otro lado, se define la *tasa de aprendizaje* $\alpha$. Esta depende del numero de iteraciones que se especifican previamente en el argumento de la funcion **SOM** de forma que en cada iteracion, $\alpha$ decrece linealmente desde $1$ hasta $0$ ($\alpha \in (0, 1)$).
+
+
+4. En  esta etapa  se  actualizan  los  vectores  de  pesos  de  los  nodos  vecinos, conocida como etapa de adaptacion:
+
+$$w_k = w_k + \alpha h(l_i-l_k)(x_i-w_k)$$
+
+
+5. Se repiten las etapas 2, 3 y 4 hasta que se verifique alguno de los criterios de parada. Dichos criterios de parada pueden ser, bien que se alcance el numero maximo de iteraciones, o que tras varias iteraciones el cambio de vectores de peso no sea significativo.
+
+
+# Aplicacion I: dataset MNIST
+## Carga de datos
+
+MNIST (Instituto Nacional Modificado de Estandares y Tecnologia) es el conjunto de datos de facto de *vision mundial* de la vision de computadora. Desde su lanzamiento en 1999, este clasico conjunto de dato de imagenes manuscritas ha servido como base para los algoritmos de clasificacion de referencia. A medida que surgen nuevas tecnicas de aprendizaje automatico, MNIST sigue siendo un recurso confiable para investigadores y estudiantes por igual.
+
+El conjunto de datos mixto de Instituto Nacional de estandares y tecnologia (MNIST) es una coleccion de 70.000 imagenes de digitos escritos a mano. Los datos fue creados para actuar como un referente para los algoritmos de reconocimiento de imagen. 
+
+Las imagenes son de 28 x 28 pixeles y cuenta con 10 clases posibles, digitos del cero al nueve.
+
+
+
+```r
+train <- read.csv("train.csv")
+train$label <- factor(train$label)
+train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
+
+l <- 1
+for (i in 1:10) {
+      for (k in 1:25) {
+            if(k==1){b <- matrix(unlist(train[l,-1])/255, ncol = 28, nrow = 28)}
+            if(k>1){
+                  a <- matrix(unlist(train[l,-1])/255, ncol = 28, nrow = 28)
+                  b <- rbind(b,a) 
+            }
+            l <- l+1
+      }
+      if(i==1){
+            c <- b
+            remove(b)
+      }
+      if(i>1){
+            c <- cbind(c,b)
+            remove(b)
+      }
+}
+
+colors <- colorRampPalette(c("#6633FF","#FFAA44","#BBFF00"))
+
+plot(colormap(c, palette = colors(256)))
+title("Primeros 250 digitos escritos a mano")
+```
+
+<img src="SOM_MNIST_clasification_files/figure-html/load-1.png" style="display: block; margin: auto;" />
+
+Al observar el rango de las imagenes tenemos que varia entre 0 y 255, considerando que las redes neuronales normalmente operan bien en rango (0, 1), debemos normalizar los datos. 
+
+Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto de entrenamiento y pruebas.
+
+
+```r
+# train[,-1] <- train[,-1]/255
+
+set.seed(100)
+Index <- createDataPartition(y = train$label, p = 0.7, list = FALSE)
+
+trainingdata <- list(measurements = as.matrix(train[Index,-1]), 
+                     target = as.matrix(train[Index,1]))
+testingdata <- list(measurements = as.matrix(train[-Index,-1]), 
+                    target = as.matrix(train[-Index,1]))
+
+tb <- data.frame(Muestras = c(nrow(trainingdata$measurements), nrow(testingdata$measurements)))
+tb = tb %>% mutate(Porcentaje = round(Muestras*100/sum(Muestras),2))
+rownames(tb) <- c("trainset", "testset")
+htmlTable(tb,
+          caption = "Tabla 1. Conjuntos de entrenamiento y prueba.",
+          col.rgroup = c("none","#9999F7"))#6633FF F7F7F7
+```
+
+<table class='gmisc_table' style='border-collapse: collapse; margin-top: 1em; margin-bottom: 1em;' >
+<thead>
+<tr><td colspan='3' style='text-align: left;'>
+Tabla 1. Conjuntos de entrenamiento y prueba.</td></tr>
+<tr>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey;'> </th>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Muestras</th>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Porcentaje</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style='text-align: left;'>trainset</td>
+<td style='text-align: center;'>29404</td>
+<td style='text-align: center;'>70.01</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: left;'>testset</td>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: center;'>12596</td>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: center;'>29.99</td>
+</tr>
+</tbody>
+</table>
+
+## Entrenamiento del SOM
+
+Con el conjunto de entrenamiento definido vamos a entrenar los SOM, para ello utilizaremos la libreria ***kohonen***, definiendolos siguientes parametros:
+
+- Numero de epocas: 100
+- Alpha: entre 0.7 y 0.01
+- Radio: 7.5
+- Grilla: 10 x 10
+- Topologia: Rectangular
+
+De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa el conjunto de entrenamiento por el algoritmo. Alpha es la tasa de aprendizaje que comienza en 0.7 al inicio y va decreciendo hasta finalizar con 0.01. El radio corresponde a la vecindad que se considera al momento de actualizar los pesos, comienza con radio 0 y va aumentando hasta 7.5 al finalizar.
+
+La grilla es la disposicion de la capa de salida, en este caso de 10x10 en topologia rectangular. Esto hace que reduzcamos en un 87.24% la cantidad de datos de cada imagen.
+
+
+```r
+# dim <- 10
+# 
+# data.SOM <- supersom(trainingdata$measurements, rlen = 100, alpha = c(0.7, 0.01), mode = "pbatch",
+#                      normalizeDataLayers = FALSE, radius = floor(dim*0.75),
+#                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
+# 
+# plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
+```
+
