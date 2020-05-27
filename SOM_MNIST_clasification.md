@@ -15,6 +15,12 @@ output:
     toc: yes
 ---
 
+<style>
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: #6633FF;
+}
+</style>
+
 
 
 # Resumen
@@ -46,7 +52,7 @@ Un modelo de SOM esta compuesto por dos capas de neuronas. Por un lado, la capa 
 <br> </br>
 <center><img src="SOM_MNIST_clasification_files/figure-html/som_example.png"></center>
 <br> </br>
-<center>**Representacion de mapa autorganizado (SOM)**</center>
+<center> Fig 1. Representacion de mapa autorganizado (SOM)</center>
 <br> </br>
 
 
@@ -115,10 +121,16 @@ for (i in 1:10) {
 colors <- colorRampPalette(c("#6633FF","#FFAA44","#BBFF00"))
 
 plot(colormap(c, palette = colors(256)))
-title("Primeros 250 digitos escritos a mano")
 ```
 
-<img src="SOM_MNIST_clasification_files/figure-html/load-1.png" style="display: block; margin: auto;" />
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/load-1.png" alt="Fig 2. Primeros 250 digitos escritos a mano"  />
+<p class="caption">Fig 2. Primeros 250 digitos escritos a mano</p>
+</div>
+
+```r
+# title("Primeros 250 digitos escritos a mano")
+```
 
 Al observar el rango de las imagenes tenemos que varia entre 0 y 255, considerando que las redes neuronales normalmente operan bien en rango (0, 1), debemos normalizar los datos. 
 
@@ -168,28 +180,229 @@ Tabla 1. Conjuntos de entrenamiento y prueba.</td></tr>
 </tbody>
 </table>
 
+
 ## Entrenamiento del SOM
 
 Con el conjunto de entrenamiento definido vamos a entrenar los SOM, para ello utilizaremos la libreria ***kohonen***, definiendolos siguientes parametros:
 
+
+
 - Numero de epocas: 100
 - Alpha: entre 0.7 y 0.01
-- Radio: 7.5
+- Radio: 7
 - Grilla: 10 x 10
 - Topologia: Rectangular
 
-De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa el conjunto de entrenamiento por el algoritmo. Alpha es la tasa de aprendizaje que comienza en 0.7 al inicio y va decreciendo hasta finalizar con 0.01. El radio corresponde a la vecindad que se considera al momento de actualizar los pesos, comienza con radio 0 y va aumentando hasta 7.5 al finalizar.
+De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa el conjunto de entrenamiento por el algoritmo. Alpha es la tasa de aprendizaje que comienza en 0.7 al inicio y va decreciendo hasta finalizar con 0.01. El radio corresponde a la vecindad que se considera al momento de actualizar los pesos, comienza con radio 0 y va aumentando hasta 7 al finalizar.
 
 La grilla es la disposicion de la capa de salida, en este caso de 10x10 en topologia rectangular. Esto hace que reduzcamos en un 87.24% la cantidad de datos de cada imagen.
 
 
+
 ```r
-# dim <- 10
-# 
-# data.SOM <- supersom(trainingdata$measurements, rlen = 100, alpha = c(0.7, 0.01), mode = "pbatch",
-#                      normalizeDataLayers = FALSE, radius = floor(dim*0.75),
-#                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
-# 
-# plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
+data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
+                     normalizeDataLayers = FALSE, radius = radius,
+                     grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
+
+plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
 ```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/som-1.png" alt="Fig 3. Entrenamiento SOM durante 100 iteraciones."  />
+<p class="caption">Fig 3. Entrenamiento SOM durante 100 iteraciones.</p>
+</div>
+
+A continuacion se muestra el codebook del modelo, que refleja como influye cada uno de los 784 pixeles a cada una de las neuronas de salida. Se observa que neuronas cercanas tienden a tener distribuciones similares.
+
+
+
+```r
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(300)[seq.int(1,300,3)], shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/codebook-1.png" alt="Fig 4. Codebook del modelo entrenado."  />
+<p class="caption">Fig 4. Codebook del modelo entrenado.</p>
+</div>
+
+
+
+El siguiente grafico muestra el conteo de observaciones mapeadas a cada neurona, esto influye en la capacidad para distinguir entre distintos tipos de observaciones, si hay sectores con muchas conteos de observaciones quiere decir que un gran numero de obsercaciones presentan las mismas caracteristicas, esto podria ser negativo en su caso extremo, ya que si un sector detecta la mayoria de las observaciones no entregaria informacion util para diferenciar clases. Lo mismo ocurre para neuronas sin observaciones (color gris) que no entregarian informacion, ya que su peso seria 0.
+
+Este no es el caso, aunque hay valores maximos, se observan variaciones de color en la figura, lo que representa que hay cierta variabilidad en los datos.
+
+
+
+
+```r
+plot(data.SOM, type = "counts", palette.name = colors, heatkey = TRUE, shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCount-1.png" alt="Fig 5. Conteo de observaciones mapeadas por cada neurona."  />
+<p class="caption">Fig 5. Conteo de observaciones mapeadas por cada neurona.</p>
+</div>
+
+
+El grafico de distancia entre neuronas vecinas es util para visualizar posibles fronteras entre zonas y tener una idea de donde se agruparian distintos grupos. En la figura se observan por lo menos 3 zonas donde se podian agrupar caracteristica, 2 en los extremos de tono mas oscuro y una separando en la diagonal de tono mas claro.
+
+
+
+```r
+plot(data.SOM, type = "dist.neighbours", palette.name = colors, shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somNeighbours-1.png" alt="Fig 6. Distancia entre neuronas vecinas."  />
+<p class="caption">Fig 6. Distancia entre neuronas vecinas.</p>
+</div>
+
+
+La calidad presente en el modelo se puede representar utilizando las distancia de las observaciones al codebook final, mientras menor distancia mejor representacion de las observaciones.
+
+
+
+```r
+plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somQuality-1.png" alt="Fig 7. Distancia entre neuronas vecinas."  />
+<p class="caption">Fig 7. Distancia entre neuronas vecinas.</p>
+</div>
+
+
+## Representacion de las clases en el modelo
+
+A continuacion revisaremos como quedan distribuidas las clases (cada numero) en el mapa. Para ello consideraremos el porcentaje de ocurrencia de cada clase por neurona.
+
+Lo anterior se realiza, primero definiendo cual es la neurona del mapa con el mayor valor por observacion, por ejemplo, para la primera observacion la neurona con mayor valor es la 92, por lo que a esta neurona se le asigna el valor del target que en este caso es el numero 1, asi para todas las observaciones. El resultad se puede observar en la siguiente figura.
+
+
+
+
+```r
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist <- table(trainingdata$target, som.prediction$unit.classif)
+plot(dist, col = "#6633FF", main = "Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredTable-1.png" alt="Fig 8. Distribucion de clases por neurona."  />
+<p class="caption">Fig 8. Distribucion de clases por neurona.</p>
+</div>
+
+
+Se observa que cada clase activa neuronas especificas, abora vamos a ver si estas distribuciones estan relacionadas o no y por lo tanto si el mapa es util para extraer caracteristicas de cada clase.
+
+Al realizar la correlacion entre los datos tenemos que los datos generados por el modelo para cada clase no estan correlacionados, lo que es muy util para clasificar.
+
+
+
+
+```r
+dist <- dist %>% apply(2, function(x){x/sum(x)})
+corDist <- cor(dist %>% t())
+row.names(corDist) <- paste0("N", row.names(corDist))
+colnames(corDist) <- paste0("N", colnames(corDist))
+corDist %>% 
+   ggcorrplot(lab = TRUE, 
+              colors = colorRampPalette(c("#BBFF00","#6633FF","#BBFF00"))(3),
+              legend.title = "Correlation")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredCor-1.png" alt="Fig 9. Matriz de correlacion entre representacion de cada numero."  />
+<p class="caption">Fig 9. Matriz de correlacion entre representacion de cada numero.</p>
+</div>
+
+Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase se ubica en zonas relativamente diferentes del resto de las clases, esto indica que el modelo separa corectamente las caracteristicas que diferencia a cada clase.
+
+
+```r
+par(mfrow = c(2,5))
+
+for (j in 1:10) {
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1 ),
+       palette.name = colors, labels = TRUE, shape = "straight")
+}
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredRep-1.png" alt="Fig 10. Zonas del mapa asociadas a cada clase."  />
+<p class="caption">Fig 10. Zonas del mapa asociadas a cada clase.</p>
+</div>
+
+
+## Comparacion de modelos de clasificacion
+
+Acontinuacion comenzaremos con realizar una clasificacion utilizando el SOM entrenado anteriormente.
+
+
+
+```r
+testSOM <- predict(data.SOM, newdata = testingdata$measurements)
+
+testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
+
+numberPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist[,x])-1})
+
+cm <- confusionMatrix(data = as.factor(numberPred), 
+                reference = as.factor(testingdata$target))
+cm
+```
+
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    0    1    2    3    4    5    6    7    8    9
+         0 1181    0    7    0    1    5   13    1    7    5
+         1    0 1379   15    3   10    3    5   21   19    6
+         2    1    6 1118   14    2    1    0   10    8    1
+         3    4    2   18 1136    0  109    1    2  120   21
+         4    1    2    8    1  878    9    0   20    7  193
+         5   21    8   46   83   24  966   32   28  106   19
+         6   23    3    7    2   15   18 1185    0    4    1
+         7    0    2   10   15   22    0    0 1120    6  130
+         8    5    1   21   43    2   11    1    3  921    7
+         9    3    2    3    8  267   16    4  115   20  873
+
+Overall Statistics
+                                          
+               Accuracy : 0.854           
+                 95% CI : (0.8477, 0.8601)
+    No Information Rate : 0.1115          
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.8377          
+                                          
+ Mcnemar's Test P-Value : NA              
+
+Statistics by Class:
+
+                     Class: 0 Class: 1 Class: 2 Class: 3 Class: 4 Class: 5
+Sensitivity           0.95319   0.9815  0.89226  0.87050  0.71908  0.84886
+Specificity           0.99657   0.9927  0.99621  0.97547  0.97881  0.96797
+Pos Pred Value        0.96803   0.9439  0.96296  0.80396  0.78463  0.72468
+Neg Pred Value        0.99490   0.9977  0.98819  0.98489  0.97011  0.98473
+Prevalence            0.09836   0.1115  0.09948  0.10360  0.09694  0.09035
+Detection Rate        0.09376   0.1095  0.08876  0.09019  0.06970  0.07669
+Detection Prevalence  0.09686   0.1160  0.09217  0.11218  0.08884  0.10583
+Balanced Accuracy     0.97488   0.9871  0.94423  0.92298  0.84895  0.90841
+                     Class: 6 Class: 7 Class: 8 Class: 9
+Sensitivity           0.95488  0.84848  0.75616  0.69506
+Specificity           0.99357  0.98359  0.99174  0.96138
+Pos Pred Value        0.94197  0.85824  0.90739  0.66590
+Neg Pred Value        0.99506  0.98229  0.97435  0.96606
+Prevalence            0.09852  0.10480  0.09670  0.09971
+Detection Rate        0.09408  0.08892  0.07312  0.06931
+Detection Prevalence  0.09987  0.10360  0.08058  0.10408
+Balanced Accuracy     0.97422  0.91604  0.87395  0.82822
+```
+
+La clasificacion entrega un valor de *accuracy* igual a 0.854 y un valor de *kappa* igual a 0.8377 lo que es bastante bueno para ser un modelo no supervisado.
+
+
+
 

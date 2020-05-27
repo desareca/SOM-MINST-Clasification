@@ -15,6 +15,12 @@ output:
     toc: yes
 ---
 
+<style>
+.list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
+    background-color: #6633FF;
+}
+</style>
+
 ```{r setup, include=FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 suppressMessages(library(EBImage))
@@ -58,7 +64,7 @@ Un modelo de SOM esta compuesto por dos capas de neuronas. Por un lado, la capa 
 <br> </br>
 <center><img src="SOM_MNIST_clasification_files/figure-html/som_example.png"></center>
 <br> </br>
-<center>**Representacion de mapa autorganizado (SOM)**</center>
+<center> Fig 1. Representacion de mapa autorganizado (SOM)</center>
 <br> </br>
 
 
@@ -98,7 +104,7 @@ El conjunto de datos mixto de Instituto Nacional de estandares y tecnologia (MNI
 Las imagenes son de 28 x 28 pixeles y cuenta con 10 clases posibles, digitos del cero al nueve.
 
 
-```{r load, cache=TRUE, comment="", echo=TRUE, warning=FALSE, fig.align='center'}
+```{r load, cache=TRUE, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 2. Primeros 250 digitos escritos a mano"}
 train <- read.csv("train.csv")
 train$label <- factor(train$label)
 train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
@@ -126,14 +132,14 @@ for (i in 1:10) {
 colors <- colorRampPalette(c("#6633FF","#FFAA44","#BBFF00"))
 
 plot(colormap(c, palette = colors(256)))
-title("Primeros 250 digitos escritos a mano")
+# title("Primeros 250 digitos escritos a mano")
 ```
 
 Al observar el rango de las imagenes tenemos que varia entre `r min(train[,-1])` y `r max(train[,-1])`, considerando que las redes neuronales normalmente operan bien en rango (0, 1), debemos normalizar los datos. 
 
 Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto de entrenamiento y pruebas.
 
-```{r dataSplit, echo=TRUE, fig.align='center', warning=FALSE, cache=FALSE, comment=""}
+```{r dataSplit, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
 # train[,-1] <- train[,-1]/255
 
 set.seed(100)
@@ -152,28 +158,143 @@ htmlTable(tb,
           col.rgroup = c("none","#9999F7"))#6633FF F7F7F7
 ```
 
+
 ## Entrenamiento del SOM
 
 Con el conjunto de entrenamiento definido vamos a entrenar los SOM, para ello utilizaremos la libreria ***kohonen***, definiendolos siguientes parametros:
 
-- Numero de epocas: 100
-- Alpha: entre 0.7 y 0.01
-- Radio: 7.5
-- Grilla: 10 x 10
+```{r somParam, echo=FALSE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+dim <- 10
+rlen <- 100
+alpha <- c(0.7, 0.01)
+radius <- floor(dim*0.75)
+titleFig3 <- paste0("Fig 3. Entrenamiento SOM durante ", rlen, " iteraciones.")
+```
+
+- Numero de epocas: `r rlen`
+- Alpha: entre `r alpha[1]` y `r alpha[2]`
+- Radio: `r radius`
+- Grilla: `r dim` x `r dim`
 - Topologia: Rectangular
 
-De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa el conjunto de entrenamiento por el algoritmo. Alpha es la tasa de aprendizaje que comienza en 0.7 al inicio y va decreciendo hasta finalizar con 0.01. El radio corresponde a la vecindad que se considera al momento de actualizar los pesos, comienza con radio 0 y va aumentando hasta 7.5 al finalizar.
+De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa el conjunto de entrenamiento por el algoritmo. Alpha es la tasa de aprendizaje que comienza en `r alpha[1]` al inicio y va decreciendo hasta finalizar con `r alpha[2]`. El radio corresponde a la vecindad que se considera al momento de actualizar los pesos, comienza con radio 0 y va aumentando hasta `r radius` al finalizar.
 
-La grilla es la disposicion de la capa de salida, en este caso de 10x10 en topologia rectangular. Esto hace que reduzcamos en un `r 100-round(10*10*100/28/28, 2)`% la cantidad de datos de cada imagen.
+La grilla es la disposicion de la capa de salida, en este caso de `r dim`x`r dim` en topologia rectangular. Esto hace que reduzcamos en un `r 100-round(dim*dim*100/(ncol(train)-1), 2)`% la cantidad de datos de cada imagen.
 
-```{r som, echo=TRUE, fig.align='center', warning=FALSE, cache=FALSE, comment=""}
-# dim <- 10
-# 
-# data.SOM <- supersom(trainingdata$measurements, rlen = 100, alpha = c(0.7, 0.01), mode = "pbatch",
-#                      normalizeDataLayers = FALSE, radius = floor(dim*0.75),
-#                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
-# 
-# plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
+
+```{r som, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap=titleFig3}
+
+data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
+                     normalizeDataLayers = FALSE, radius = radius,
+                     grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
+
+plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
+```
+
+A continuacion se muestra el codebook del modelo, que refleja como influye cada uno de los `r ncol(train)-1` pixeles a cada una de las neuronas de salida. Se observa que neuronas cercanas tienden a tener distribuciones similares.
+
+
+```{r codebook, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 4. Codebook del modelo entrenado."}
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(300)[seq.int(1,300,3)], shape = "straight")
 
 ```
+
+
+
+El siguiente grafico muestra el conteo de observaciones mapeadas a cada neurona, esto influye en la capacidad para distinguir entre distintos tipos de observaciones, si hay sectores con muchas conteos de observaciones quiere decir que un gran numero de obsercaciones presentan las mismas caracteristicas, esto podria ser negativo en su caso extremo, ya que si un sector detecta la mayoria de las observaciones no entregaria informacion util para diferenciar clases. Lo mismo ocurre para neuronas sin observaciones (color gris) que no entregarian informacion, ya que su peso seria 0.
+
+Este no es el caso, aunque hay valores maximos, se observan variaciones de color en la figura, lo que representa que hay cierta variabilidad en los datos.
+
+
+
+```{r somCount, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 5. Conteo de observaciones mapeadas por cada neurona."}
+plot(data.SOM, type = "counts", palette.name = colors, heatkey = TRUE, shape = "straight")
+
+```
+
+
+El grafico de distancia entre neuronas vecinas es util para visualizar posibles fronteras entre zonas y tener una idea de donde se agruparian distintos grupos. En la figura se observan por lo menos 3 zonas donde se podian agrupar caracteristica, 2 en los extremos de tono mas oscuro y una separando en la diagonal de tono mas claro.
+
+
+```{r somNeighbours, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 6. Distancia entre neuronas vecinas."}
+plot(data.SOM, type = "dist.neighbours", palette.name = colors, shape = "straight")
+
+```
+
+
+La calidad presente en el modelo se puede representar utilizando las distancia de las observaciones al codebook final, mientras menor distancia mejor representacion de las observaciones.
+
+
+```{r somQuality, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 7. Distancia entre neuronas vecinas."}
+plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = "straight")
+
+```
+
+
+## Representacion de las clases en el modelo
+
+A continuacion revisaremos como quedan distribuidas las clases (cada numero) en el mapa. Para ello consideraremos el porcentaje de ocurrencia de cada clase por neurona.
+
+Lo anterior se realiza, primero definiendo cual es la neurona del mapa con el mayor valor por observacion, por ejemplo, para la primera observacion la neurona con mayor valor es la 92, por lo que a esta neurona se le asigna el valor del target que en este caso es el numero 1, asi para todas las observaciones. El resultad se puede observar en la siguiente figura.
+
+
+
+```{r somPredTable, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Distribucion de clases por neurona."}
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist <- table(trainingdata$target, som.prediction$unit.classif)
+plot(dist, col = "#6633FF", main = "Numeros")
+```
+
+
+Se observa que cada clase activa neuronas especificas, abora vamos a ver si estas distribuciones estan relacionadas o no y por lo tanto si el mapa es util para extraer caracteristicas de cada clase.
+
+Al realizar la correlacion entre los datos tenemos que los datos generados por el modelo para cada clase no estan correlacionados, lo que es muy util para clasificar.
+
+
+
+```{r somPredCor, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 9. Matriz de correlacion entre representacion de cada numero."}
+dist <- dist %>% apply(2, function(x){x/sum(x)})
+corDist <- cor(dist %>% t())
+row.names(corDist) <- paste0("N", row.names(corDist))
+colnames(corDist) <- paste0("N", colnames(corDist))
+corDist %>% 
+   ggcorrplot(lab = TRUE, 
+              colors = colorRampPalette(c("#BBFF00","#6633FF","#BBFF00"))(3),
+              legend.title = "Correlation")
+```
+
+Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase se ubica en zonas relativamente diferentes del resto de las clases, esto indica que el modelo separa corectamente las caracteristicas que diferencia a cada clase.
+
+```{r somPredRep, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 10. Zonas del mapa asociadas a cada clase."}
+par(mfrow = c(2,5))
+
+for (j in 1:10) {
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1 ),
+       palette.name = colors, labels = TRUE, shape = "straight")
+}
+
+```
+
+
+## Comparacion de modelos de clasificacion
+
+Acontinuacion comenzaremos con realizar una clasificacion utilizando el SOM entrenado anteriormente.
+
+
+```{r somTestClass, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+testSOM <- predict(data.SOM, newdata = testingdata$measurements)
+
+testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
+
+numberPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist[,x])-1})
+
+cm <- confusionMatrix(data = as.factor(numberPred), 
+                reference = as.factor(testingdata$target))
+cm
+```
+
+La clasificacion entrega un valor de *accuracy* igual a `r round(cm$overall[[1]], 4)` y un valor de *kappa* igual a `r round(cm$overall[[2]], 4)` lo que es bastante bueno para ser un modelo no supervisado.
+
+
+
 
