@@ -135,9 +135,9 @@ plot(colormap(c, palette = colors(256)))
 # title("Primeros 250 digitos escritos a mano")
 ```
 
-Al observar el rango de las imagenes tenemos que varia entre `r min(train[,-1])` y `r max(train[,-1])`, considerando que las redes neuronales normalmente operan bien en rango (0, 1), debemos normalizar los datos. 
+Al observar el rango de las imagenes tenemos que varia entre `r min(train[,-1])` y `r max(train[,-1])`, por lo que es necesario normalizar los datos para que la red neuronal opere correctamente. Ademas, como se observa en la imagen de muestra, mucho valores (orillas de los numeros) presentan el mismo valor, lo que no entrega informacion util al modelo y puede provocar problemas de colinealidad, para ello eliminaremos los pixeles con varianza cercana a cero. 
 
-Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto de entrenamiento y pruebas.
+Luego, utilizaremos dividiremos el data set en conjunto de entrenamiento y pruebas. Todo lo anterior utilizando la libreria ***caret***
 
 ```{r dataSplit, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
 # train[,-1] <- train[,-1]/255
@@ -145,9 +145,14 @@ Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto
 set.seed(100)
 Index <- createDataPartition(y = train$label, p = 0.7, list = FALSE)
 
-trainingdata <- list(measurements = as.matrix(train[Index,-1]), 
+preProc <- preProcess(as.matrix(train[Index,-1]), method = c("center", "scale", "nzv"))
+trainP <- predict(preProc, as.matrix(train[Index,-1]))
+testP <- predict(preProc, as.matrix(train[-Index,-1]))
+
+
+trainingdata <- list(measurements = trainP, 
                      target = as.matrix(train[Index,1]))
-testingdata <- list(measurements = as.matrix(train[-Index,-1]), 
+testingdata <- list(measurements = testP, 
                     target = as.matrix(train[-Index,1]))
 
 tb <- data.frame(Muestras = c(nrow(trainingdata$measurements), nrow(testingdata$measurements)))
@@ -195,7 +200,7 @@ A continuacion se muestra el codebook del modelo, que refleja como influye cada 
 
 
 ```{r codebook, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 4. Codebook del modelo entrenado."}
-plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(300)[seq.int(1,300,3)], shape = "straight")
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(500)[seq.int(350,500,1)], shape = "straight")
 
 ```
 
@@ -231,12 +236,11 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 ```
 
 
-## Representacion de las clases en el modelo
+## Representacion de las clases en el modelo y clasificacion
 
 A continuacion revisaremos como quedan distribuidas las clases (cada numero) en el mapa. Para ello consideraremos el porcentaje de ocurrencia de cada clase por neurona.
 
 Lo anterior se realiza, primero definiendo cual es la neurona del mapa con el mayor valor por observacion, por ejemplo, para la primera observacion la neurona con mayor valor es la 92, por lo que a esta neurona se le asigna el valor del target que en este caso es el numero 1, asi para todas las observaciones. El resultad se puede observar en la siguiente figura.
-
 
 
 ```{r somPredTable, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Distribucion de clases por neurona."}
@@ -269,16 +273,17 @@ Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase
 par(mfrow = c(2,5))
 
 for (j in 1:10) {
-  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1 ),
-       palette.name = colors, labels = TRUE, shape = "straight")
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1, "\n" ),
+       palette.name = colors, heatkey = FALSE, shape = "straight")
 }
 
 ```
 
 
-## Comparacion de modelos de clasificacion
 
 Acontinuacion comenzaremos con realizar una clasificacion utilizando el SOM entrenado anteriormente.
+
+Como se observa en la matriz de confusion, los numeros 4 y 9 presentan problemas
 
 
 ```{r somTestClass, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}

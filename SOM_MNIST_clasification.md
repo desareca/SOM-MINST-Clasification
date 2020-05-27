@@ -132,9 +132,9 @@ plot(colormap(c, palette = colors(256)))
 # title("Primeros 250 digitos escritos a mano")
 ```
 
-Al observar el rango de las imagenes tenemos que varia entre 0 y 255, considerando que las redes neuronales normalmente operan bien en rango (0, 1), debemos normalizar los datos. 
+Al observar el rango de las imagenes tenemos que varia entre 0 y 255, por lo que es necesario normalizar los datos para que la red neuronal opere correctamente. Ademas, como se observa en la imagen de muestra, mucho valores (orillas de los numeros) presentan el mismo valor, lo que no entrega informacion util al modelo y puede provocar problemas de colinealidad, para ello eliminaremos los pixeles con varianza cercana a cero. 
 
-Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto de entrenamiento y pruebas.
+Luego, utilizaremos dividiremos el data set en conjunto de entrenamiento y pruebas. Todo lo anterior utilizando la libreria ***caret***
 
 
 ```r
@@ -143,9 +143,14 @@ Luego, utilizaremos la libreria ***caret*** para dividir el data set en conjunto
 set.seed(100)
 Index <- createDataPartition(y = train$label, p = 0.7, list = FALSE)
 
-trainingdata <- list(measurements = as.matrix(train[Index,-1]), 
+preProc <- preProcess(as.matrix(train[Index,-1]), method = c("center", "scale", "nzv"))
+trainP <- predict(preProc, as.matrix(train[Index,-1]))
+testP <- predict(preProc, as.matrix(train[-Index,-1]))
+
+
+trainingdata <- list(measurements = trainP, 
                      target = as.matrix(train[Index,1]))
-testingdata <- list(measurements = as.matrix(train[-Index,-1]), 
+testingdata <- list(measurements = testP, 
                     target = as.matrix(train[-Index,1]))
 
 tb <- data.frame(Muestras = c(nrow(trainingdata$measurements), nrow(testingdata$measurements)))
@@ -217,7 +222,7 @@ A continuacion se muestra el codebook del modelo, que refleja como influye cada 
 
 
 ```r
-plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(300)[seq.int(1,300,3)], shape = "straight")
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(500)[seq.int(350,500,1)], shape = "straight")
 ```
 
 <div class="figure" style="text-align: center">
@@ -272,12 +277,11 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 </div>
 
 
-## Representacion de las clases en el modelo
+## Representacion de las clases en el modelo y clasificacion
 
 A continuacion revisaremos como quedan distribuidas las clases (cada numero) en el mapa. Para ello consideraremos el porcentaje de ocurrencia de cada clase por neurona.
 
 Lo anterior se realiza, primero definiendo cual es la neurona del mapa con el mayor valor por observacion, por ejemplo, para la primera observacion la neurona con mayor valor es la 92, por lo que a esta neurona se le asigna el valor del target que en este caso es el numero 1, asi para todas las observaciones. El resultad se puede observar en la siguiente figura.
-
 
 
 
@@ -323,8 +327,8 @@ Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase
 par(mfrow = c(2,5))
 
 for (j in 1:10) {
-  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1 ),
-       palette.name = colors, labels = TRUE, shape = "straight")
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1, "\n" ),
+       palette.name = colors, heatkey = FALSE, shape = "straight")
 }
 ```
 
@@ -334,9 +338,10 @@ for (j in 1:10) {
 </div>
 
 
-## Comparacion de modelos de clasificacion
 
 Acontinuacion comenzaremos con realizar una clasificacion utilizando el SOM entrenado anteriormente.
+
+Como se observa en la matriz de confusion, los numeros 4 y 9 presentan problemas
 
 
 
@@ -357,51 +362,51 @@ Confusion Matrix and Statistics
 
           Reference
 Prediction    0    1    2    3    4    5    6    7    8    9
-         0 1181    0    7    0    1    5   13    1    7    5
-         1    0 1379   15    3   10    3    5   21   19    6
-         2    1    6 1118   14    2    1    0   10    8    1
-         3    4    2   18 1136    0  109    1    2  120   21
-         4    1    2    8    1  878    9    0   20    7  193
-         5   21    8   46   83   24  966   32   28  106   19
-         6   23    3    7    2   15   18 1185    0    4    1
-         7    0    2   10   15   22    0    0 1120    6  130
-         8    5    1   21   43    2   11    1    3  921    7
-         9    3    2    3    8  267   16    4  115   20  873
+         0 1176    1    8    5    0    8   42    2    7    7
+         1    0 1380   26    5    6    5    3   28   21    8
+         2   12    6 1120   32   24   38   24   39   34   19
+         3    4    3    9 1037    0   66    0    0   56   16
+         4    3    1   13    3  931    8    1   34   22  271
+         5   10    0    3   85    2  953    8    4   69    6
+         6   28    6   17   14   16   29 1159    0   13    1
+         7    0    1   20   11   12    2    0 1091   13   38
+         8    4    0   22  100    2   18    4    1  962    9
+         9    2    7   15   13  228   11    0  121   21  881
 
 Overall Statistics
                                           
-               Accuracy : 0.854           
-                 95% CI : (0.8477, 0.8601)
+               Accuracy : 0.8487          
+                 95% CI : (0.8423, 0.8549)
     No Information Rate : 0.1115          
     P-Value [Acc > NIR] : < 2.2e-16       
                                           
-                  Kappa : 0.8377          
+                  Kappa : 0.8318          
                                           
  Mcnemar's Test P-Value : NA              
 
 Statistics by Class:
 
                      Class: 0 Class: 1 Class: 2 Class: 3 Class: 4 Class: 5
-Sensitivity           0.95319   0.9815  0.89226  0.87050  0.71908  0.84886
-Specificity           0.99657   0.9927  0.99621  0.97547  0.97881  0.96797
-Pos Pred Value        0.96803   0.9439  0.96296  0.80396  0.78463  0.72468
-Neg Pred Value        0.99490   0.9977  0.98819  0.98489  0.97011  0.98473
+Sensitivity           0.94915   0.9822  0.89385  0.79464  0.76249  0.83743
+Specificity           0.99296   0.9909  0.97990  0.98636  0.96870  0.98368
+Pos Pred Value        0.93631   0.9312  0.83086  0.87070  0.72339  0.83596
+Neg Pred Value        0.99444   0.9978  0.98818  0.97650  0.97436  0.98385
 Prevalence            0.09836   0.1115  0.09948  0.10360  0.09694  0.09035
-Detection Rate        0.09376   0.1095  0.08876  0.09019  0.06970  0.07669
-Detection Prevalence  0.09686   0.1160  0.09217  0.11218  0.08884  0.10583
-Balanced Accuracy     0.97488   0.9871  0.94423  0.92298  0.84895  0.90841
+Detection Rate        0.09336   0.1096  0.08892  0.08233  0.07391  0.07566
+Detection Prevalence  0.09971   0.1177  0.10702  0.09455  0.10218  0.09050
+Balanced Accuracy     0.97105   0.9865  0.93688  0.89050  0.86560  0.91056
                      Class: 6 Class: 7 Class: 8 Class: 9
-Sensitivity           0.95488  0.84848  0.75616  0.69506
-Specificity           0.99357  0.98359  0.99174  0.96138
-Pos Pred Value        0.94197  0.85824  0.90739  0.66590
-Neg Pred Value        0.99506  0.98229  0.97435  0.96606
+Sensitivity           0.93392  0.82652  0.78982  0.70143
+Specificity           0.98908  0.99140  0.98594  0.96314
+Pos Pred Value        0.90335  0.91835  0.85740  0.67821
+Neg Pred Value        0.99275  0.97993  0.97769  0.96681
 Prevalence            0.09852  0.10480  0.09670  0.09971
-Detection Rate        0.09408  0.08892  0.07312  0.06931
-Detection Prevalence  0.09987  0.10360  0.08058  0.10408
-Balanced Accuracy     0.97422  0.91604  0.87395  0.82822
+Detection Rate        0.09201  0.08661  0.07637  0.06994
+Detection Prevalence  0.10186  0.09432  0.08908  0.10313
+Balanced Accuracy     0.96150  0.90896  0.88788  0.83229
 ```
 
-La clasificacion entrega un valor de *accuracy* igual a 0.854 y un valor de *kappa* igual a 0.8377 lo que es bastante bueno para ser un modelo no supervisado.
+La clasificacion entrega un valor de *accuracy* igual a 0.8487 y un valor de *kappa* igual a 0.8318 lo que es bastante bueno para ser un modelo no supervisado.
 
 
 
