@@ -98,25 +98,32 @@ train <- read.csv("train.csv")
 train$label <- factor(train$label)
 train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
 
-l <- 1
-for (i in 1:10) {
-      for (k in 1:25) {
-            if(k==1){b <- matrix(unlist(train[l,-1])/255, ncol = 28, nrow = 28)}
-            if(k>1){
-                  a <- matrix(unlist(train[l,-1])/255, ncol = 28, nrow = 28)
-                  b <- rbind(b,a) 
-            }
-            l <- l+1
+
+pegaImag <- function(img, nrow=25, ncol=10, colExcl = 1, dimImg = c(28, 28), random = FALSE, seed = 0){
+   if(random){img <- img[sample(c(1:nrow(img)), nrow(img)),]}
+   l <- 1
+   for (i in 1:ncol) {
+      for (k in 1:nrow) {
+         if(k==1){b <- matrix(unlist(img[l,-colExcl])/255, ncol = dimImg[2], nrow = dimImg[1])}
+         if(k>1){
+            a <- matrix(unlist(img[l,-colExcl])/255, ncol = dimImg[2], nrow = dimImg[1])
+            b <- rbind(b,a) 
+         }
+         l <- l+1
       }
       if(i==1){
-            c <- b
-            remove(b)
+         c <- b
+         remove(b)
       }
       if(i>1){
-            c <- cbind(c,b)
-            remove(b)
+         c <- cbind(c,b)
+         remove(b)
       }
+   }
+   return(c)
 }
+
+c <- pegaImag(train, nrow = 25, ncol = 10, dimImg = c(28, 28), random = FALSE)
 
 colors <- colorRampPalette(c("#6633FF","#FFAA44","#BBFF00"))
 
@@ -128,25 +135,18 @@ plot(colormap(c, palette = colors(256)))
 <p class="caption">Fig 2. Primeros 250 digitos escritos a mano</p>
 </div>
 
-```r
-# title("Primeros 250 digitos escritos a mano")
-```
-
 Al observar el rango de las imagenes tenemos que varia entre 0 y 255, por lo que es necesario normalizar los datos para que la red neuronal opere correctamente. Ademas, como se observa en la imagen de muestra, mucho valores (orillas de los numeros) presentan el mismo valor, lo que no entrega informacion util al modelo y puede provocar problemas de colinealidad, para ello eliminaremos los pixeles con varianza cercana a cero. 
 
 Luego, utilizaremos dividiremos el data set en conjunto de entrenamiento y pruebas. Todo lo anterior utilizando la libreria ***caret***
 
 
 ```r
-# train[,-1] <- train[,-1]/255
-
 set.seed(100)
 Index <- createDataPartition(y = train$label, p = 0.7, list = FALSE)
 
 preProc <- preProcess(as.matrix(train[Index,-1]), method = c("center", "scale", "nzv"))
 trainP <- predict(preProc, as.matrix(train[Index,-1]))
 testP <- predict(preProc, as.matrix(train[-Index,-1]))
-
 
 trainingdata <- list(measurements = trainP, 
                      target = as.matrix(train[Index,1]))
@@ -158,7 +158,7 @@ tb = tb %>% mutate(Porcentaje = round(Muestras*100/sum(Muestras),2))
 rownames(tb) <- c("trainset", "testset")
 htmlTable(tb,
           caption = "Tabla 1. Conjuntos de entrenamiento y prueba.",
-          col.rgroup = c("none","#9999F7"))#6633FF F7F7F7
+          col.rgroup = c("none","#9999F7"))
 ```
 
 <table class='gmisc_table' style='border-collapse: collapse; margin-top: 1em; margin-bottom: 1em;' >
@@ -276,6 +276,152 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 <p class="caption">Fig 7. Distancia entre neuronas vecinas.</p>
 </div>
 
+## Clustering del SOM
+
+
+Los SOM son redes neuronales no supervisadas, por lo que no es posible realizar una clasificacion directa sin encontrar las zonas asociadas a las distintas clases. Para hacernos una idea de donde estan distribuidos los numeros en el mapa vamos a realizar clustering.
+
+
+```r
+# metodos disponibles
+method <- c("ward.D", "ward.D2", "single", "complete",
+            "average", "mcquitty", "median", "centroid")
+# grafico cluster en som
+par(mfrow = c(2,4))
+for (j in 1:8) {
+      som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      
+      plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+           main = paste0("Clusters (", method[j],")"), 
+           shape = "straight", border = NULL, pchs = ".") 
+      add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+}
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somClusterGral-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+considerando que los metodos **single**, **median** y **centroid** no nos aportan informacion util, ya que asignan a casi todas las neuronas al mismo cluster, no centraremos en el resto.
+
+
+
+```r
+k = 1
+par(mfrow = c(1,2))
+# seleccion un metodo en particular
+som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
+plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+     main = paste0("Clusters (", method[k],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+# tabla target vs cluster
+a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
+plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCluster1-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+
+```r
+k = 2
+par(mfrow = c(1,2))
+# seleccion un metodo en particular
+som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
+plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+     main = paste0("Clusters (", method[k],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+# tabla target vs cluster
+a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
+plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCluster2-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+
+```r
+k = 4
+par(mfrow = c(1,2))
+# seleccion un metodo en particular
+som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
+plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+     main = paste0("Clusters (", method[k],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+# tabla target vs cluster
+a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
+plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCluster4-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+
+```r
+k = 5
+par(mfrow = c(1,2))
+# seleccion un metodo en particular
+som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
+plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+     main = paste0("Clusters (", method[k],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+# tabla target vs cluster
+a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
+plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCluster5-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+
+```r
+k = 6
+par(mfrow = c(1,2))
+# seleccion un metodo en particular
+som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
+plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
+     main = paste0("Clusters (", method[k],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+# tabla target vs cluster
+a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
+plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somCluster6-1.png" alt="Fig 8. Cluster con distintos metodos de alglomeracion."  />
+<p class="caption">Fig 8. Cluster con distintos metodos de alglomeracion.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Representacion de las clases en el modelo y clasificacion
 
@@ -320,7 +466,7 @@ corDist %>%
 <p class="caption">Fig 9. Matriz de correlacion entre representacion de cada numero.</p>
 </div>
 
-Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase se ubica en zonas relativamente diferentes del resto de las clases, esto indica que el modelo separa corectamente las caracteristicas que diferencia a cada clase.
+Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase se ubica en zonas relativamente diferentes del resto de las clases, esto indica que el modelo separa correctamente las caracteristicas que diferencia a cada clase.
 
 
 ```r
@@ -336,6 +482,36 @@ for (j in 1:10) {
 <img src="SOM_MNIST_clasification_files/figure-html/somPredRep-1.png" alt="Fig 10. Zonas del mapa asociadas a cada clase."  />
 <p class="caption">Fig 10. Zonas del mapa asociadas a cada clase.</p>
 </div>
+
+Si observamos (figura de mas abajo) la desviacion estandar de cada neurona por clase tenemos algunas zonas conflictivas.
+
+Para entender la siguiente figura es necesario tener presente que el color morado representa una desviacion maxima y a medida que se acerca al verde (pasando por naranjo) se acerca a 0.
+Las neuronas con menor desviacion por clase se muestran en tonos naranjo y verdes, estas representan zonas difusas donde se ubican caracteristicas mas generales.
+
+En este caso particular als zonas con baja desviacion estan asociadas por un lado una zona grande del 9 y el 4, donde hasta un ser humano podria tener problemas e diferenciar; por otro en una zona menor asociada al 3, 5 y 8, numeros que tabien podrian llegar a ser confundidos.
+
+
+
+```r
+distSd <- dist %>% apply(2, sd)
+
+par(mfrow = c(1,1))
+plot(data.SOM, type = "property", property = distSd, main=paste0(""),
+     palette.name = colorRampPalette(c("#BBFF00","#FFAA44","#6633FF")), heatkey = FALSE, shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredRepSd-1.png" alt="Fig 11. Desviacion de representacion de clases por neurona.
+"  />
+<p class="caption">Fig 11. Desviacion de representacion de clases por neurona.
+</p>
+</div>
+
+
+
+
+
+
 
 
 
@@ -362,51 +538,236 @@ Confusion Matrix and Statistics
 
           Reference
 Prediction    0    1    2    3    4    5    6    7    8    9
-         0 1176    1    8    5    0    8   42    2    7    7
-         1    0 1380   26    5    6    5    3   28   21    8
-         2   12    6 1120   32   24   38   24   39   34   19
-         3    4    3    9 1037    0   66    0    0   56   16
-         4    3    1   13    3  931    8    1   34   22  271
-         5   10    0    3   85    2  953    8    4   69    6
-         6   28    6   17   14   16   29 1159    0   13    1
-         7    0    1   20   11   12    2    0 1091   13   38
-         8    4    0   22  100    2   18    4    1  962    9
-         9    2    7   15   13  228   11    0  121   21  881
+         0 1177    1    8    3    0    4   27    2    3    6
+         1    0 1379   25    7    5    6    2   25   22    7
+         2   14    7 1136   35   23   33   26   34   35   20
+         3    3    2    8  971    0   48    0    0   75   16
+         4    2    1   14    2  853    9    3   35   23  234
+         5   13    0    4  175    2  999   14    5  132   12
+         6   29    6   16   11   18   23 1169    0   13    1
+         7    0    1   21   14   10    2    0 1092   27   35
+         8    1    0   16   66    2    3    0    1  866    3
+         9    0    8    5   21  308   11    0  126   22  922
 
 Overall Statistics
                                           
-               Accuracy : 0.8487          
-                 95% CI : (0.8423, 0.8549)
+               Accuracy : 0.8387          
+                 95% CI : (0.8321, 0.8451)
     No Information Rate : 0.1115          
     P-Value [Acc > NIR] : < 2.2e-16       
                                           
-                  Kappa : 0.8318          
+                  Kappa : 0.8207          
                                           
  Mcnemar's Test P-Value : NA              
 
 Statistics by Class:
 
                      Class: 0 Class: 1 Class: 2 Class: 3 Class: 4 Class: 5
-Sensitivity           0.94915   0.9822  0.89385  0.79464  0.76249  0.83743
-Specificity           0.99296   0.9909  0.97990  0.98636  0.96870  0.98368
-Pos Pred Value        0.93631   0.9312  0.83086  0.87070  0.72339  0.83596
-Neg Pred Value        0.99444   0.9978  0.98818  0.97650  0.97436  0.98385
+Sensitivity           0.94996   0.9815  0.90662  0.74406  0.69861  0.87786
+Specificity           0.99525   0.9912  0.97999  0.98654  0.97160  0.96884
+Pos Pred Value        0.95613   0.9330  0.83346  0.86465  0.72534  0.73673
+Neg Pred Value        0.99454   0.9977  0.98958  0.97089  0.96778  0.98763
 Prevalence            0.09836   0.1115  0.09948  0.10360  0.09694  0.09035
-Detection Rate        0.09336   0.1096  0.08892  0.08233  0.07391  0.07566
-Detection Prevalence  0.09971   0.1177  0.10702  0.09455  0.10218  0.09050
-Balanced Accuracy     0.97105   0.9865  0.93688  0.89050  0.86560  0.91056
+Detection Rate        0.09344   0.1095  0.09019  0.07709  0.06772  0.07931
+Detection Prevalence  0.09773   0.1173  0.10821  0.08916  0.09336  0.10765
+Balanced Accuracy     0.97260   0.9863  0.94331  0.86530  0.83511  0.92335
                      Class: 6 Class: 7 Class: 8 Class: 9
-Sensitivity           0.93392  0.82652  0.78982  0.70143
-Specificity           0.98908  0.99140  0.98594  0.96314
-Pos Pred Value        0.90335  0.91835  0.85740  0.67821
-Neg Pred Value        0.99275  0.97993  0.97769  0.96681
+Sensitivity           0.94198  0.82727  0.71100  0.73408
+Specificity           0.98970  0.99024  0.99191  0.95582
+Pos Pred Value        0.90902  0.90849  0.90397  0.64793
+Neg Pred Value        0.99363  0.97999  0.96975  0.97011
 Prevalence            0.09852  0.10480  0.09670  0.09971
-Detection Rate        0.09201  0.08661  0.07637  0.06994
-Detection Prevalence  0.10186  0.09432  0.08908  0.10313
-Balanced Accuracy     0.96150  0.90896  0.88788  0.83229
+Detection Rate        0.09281  0.08669  0.06875  0.07320
+Detection Prevalence  0.10210  0.09543  0.07606  0.11297
+Balanced Accuracy     0.96584  0.90876  0.85146  0.84495
 ```
 
-La clasificacion entrega un valor de *accuracy* igual a 0.8487 y un valor de *kappa* igual a 0.8318 lo que es bastante bueno para ser un modelo no supervisado.
+La clasificacion entrega un valor de *accuracy* igual a 0.8387 y un valor de *kappa* igual a 0.8207 lo que es bastante bueno para ser un modelo no supervisado.
+
+
+
+
+
+## Representacion y clasificacion de numeros pares
+
+Como los mapas autoorganizados mapean las caracteristicas de los datos de manera no supervisada, es posible utilizar el modelo para agrupar de distintas maneras, en este caso utilizaremos el modelo ya entrenado para visualizar y clasificar numeros pares e impares.
+
+Para ello primero debemos redefinir el *target*.
+
+
+
+```r
+label <- train$label %>% as.character() %>% as.numeric()
+label2 <- 1 - (label %% 2)
+
+tb <- data.frame(Target = head(label,10), TargetNew = head(label2,10))
+htmlTable(tb,
+          caption = "Tabla 2. Equivalencia numero con paridad.",
+          col.rgroup = c("none","#9999F7"))
+```
+
+<table class='gmisc_table' style='border-collapse: collapse; margin-top: 1em; margin-bottom: 1em;' >
+<thead>
+<tr><td colspan='3' style='text-align: left;'>
+Tabla 2. Equivalencia numero con paridad.</td></tr>
+<tr>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey;'> </th>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>Target</th>
+<th style='border-bottom: 1px solid grey; border-top: 2px solid grey; text-align: center;'>TargetNew</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style='text-align: left;'>1</td>
+<td style='text-align: center;'>1</td>
+<td style='text-align: center;'>0</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; text-align: left;'>2</td>
+<td style='background-color: #9999f7; text-align: center;'>0</td>
+<td style='background-color: #9999f7; text-align: center;'>1</td>
+</tr>
+<tr>
+<td style='text-align: left;'>3</td>
+<td style='text-align: center;'>1</td>
+<td style='text-align: center;'>0</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; text-align: left;'>4</td>
+<td style='background-color: #9999f7; text-align: center;'>4</td>
+<td style='background-color: #9999f7; text-align: center;'>1</td>
+</tr>
+<tr>
+<td style='text-align: left;'>5</td>
+<td style='text-align: center;'>0</td>
+<td style='text-align: center;'>1</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; text-align: left;'>6</td>
+<td style='background-color: #9999f7; text-align: center;'>0</td>
+<td style='background-color: #9999f7; text-align: center;'>1</td>
+</tr>
+<tr>
+<td style='text-align: left;'>7</td>
+<td style='text-align: center;'>7</td>
+<td style='text-align: center;'>0</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; text-align: left;'>8</td>
+<td style='background-color: #9999f7; text-align: center;'>3</td>
+<td style='background-color: #9999f7; text-align: center;'>0</td>
+</tr>
+<tr>
+<td style='text-align: left;'>9</td>
+<td style='text-align: center;'>5</td>
+<td style='text-align: center;'>0</td>
+</tr>
+<tr style='background-color: #9999f7;'>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: left;'>10</td>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: center;'>3</td>
+<td style='background-color: #9999f7; border-bottom: 2px solid grey; text-align: center;'>0</td>
+</tr>
+</tbody>
+</table>
+
+
+Ahora veremos como quedan distribuidas cada clase nueva por neurona.
+
+
+
+
+```r
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist2 <- table(label2[Index], som.prediction$unit.classif)
+plot(dist2, col = "#6633FF", main = "Numeros")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredTablePar-1.png" alt="Fig 12. Distribucion de clases por neurona."  />
+<p class="caption">Fig 12. Distribucion de clases por neurona.</p>
+</div>
+
+
+
+
+
+
+```r
+dist2 <- dist2 %>% apply(2, function(x){x/sum(x)})
+
+par(mfrow = c(1,2))
+tParc = c("Impar", "Par")
+for (j in 1:2) {
+  plot(data.SOM, type = "property", property = dist2[j,], main=paste0(tParc[j], "\n" ),
+       palette.name = colors, heatkey = FALSE, shape = "straight")
+}
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredRepPar-1.png" alt="Fig 13. Zonas del mapa asociadas a cada clase."  />
+<p class="caption">Fig 13. Zonas del mapa asociadas a cada clase.</p>
+</div>
+
+
+
+
+
+```r
+dist2Sd <- dist2 %>% apply(2, sd)
+
+par(mfrow = c(1,1))
+plot(data.SOM, type = "property", property = dist2Sd, main=paste0(""),
+     palette.name = colorRampPalette(c("#BBFF00","#FFAA44","#6633FF")), 
+     heatkey = FALSE, shape = "straight")
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredPSd-1.png" alt="Fig 14. Desviacion de representacion de clases por neurona."  />
+<p class="caption">Fig 14. Desviacion de representacion de clases por neurona.</p>
+</div>
+
+
+
+```r
+ParPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist2[,x])-1})
+
+cm2 <- confusionMatrix(data = as.factor(ParPred), reference = as.factor(label2[-Index]))
+cm2
+```
+
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction    0    1
+         0 5884  698
+         1  540 5474
+                                          
+               Accuracy : 0.9017          
+                 95% CI : (0.8964, 0.9069)
+    No Information Rate : 0.51            
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.8033          
+                                          
+ Mcnemar's Test P-Value : 8.116e-06       
+                                          
+            Sensitivity : 0.9159          
+            Specificity : 0.8869          
+         Pos Pred Value : 0.8940          
+         Neg Pred Value : 0.9102          
+             Prevalence : 0.5100          
+         Detection Rate : 0.4671          
+   Detection Prevalence : 0.5225          
+      Balanced Accuracy : 0.9014          
+                                          
+       'Positive' Class : 0               
+                                          
+```
+
+
+
+
 
 
 
