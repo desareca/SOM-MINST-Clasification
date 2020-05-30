@@ -17,12 +17,12 @@ output:
 
 <style>
 .list-group-item.active, .list-group-item.active:focus, .list-group-item.active:hover {
-    background-color: #6633FF;
+    background-color: #6A3D9A;
 }
 </style>
 
-```{r setup, include=FALSE, warning=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, warning=FALSE, fig.width=15}
+knitr::opts_chunk$set(echo = TRUE, comment="", cache = FALSE)
 suppressMessages(library(EBImage))
 suppressMessages(library(caret))
 suppressMessages(library(dplyr))
@@ -33,6 +33,7 @@ suppressMessages(library(ggcorrplot))
 suppressMessages(library(htmlTable))
 suppressMessages(library(kableExtra))
 suppressMessages(library(RColorBrewer))
+suppressMessages(library(readbitmap))
 ```
 
 # Resumen
@@ -104,7 +105,7 @@ El conjunto de datos mixto de Instituto Nacional de estandares y tecnologia (MNI
 Las imagenes son de 28 x 28 pixeles y cuenta con 10 clases posibles, digitos del cero al nueve.
 
 
-```{r load, cache=TRUE, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 2. Primeros 250 digitos escritos a mano"}
+```{r load, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 2. Primeros 250 digitos escritos a mano"}
 train <- read.csv("train.csv")
 train$label <- factor(train$label)
 train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
@@ -135,9 +136,7 @@ pegaImag <- function(img, nrow=25, ncol=10, colExcl = 1, dimImg = c(28, 28), ran
 }
 
 c <- pegaImag(train, nrow = 25, ncol = 10, dimImg = c(28, 28), random = FALSE)
-
-colors <- colorRampPalette(c("#6633FF","#FFAA44","#BBFF00"))
-
+colors <- colorRampPalette(brewer.pal(n = 10, name = "Paired")[c(10,8,1)])
 plot(colormap(c, palette = colors(256)))
 ```
 
@@ -145,7 +144,7 @@ Al observar el rango de las imagenes tenemos que varia entre `r min(train[,-1])`
 
 Luego, utilizaremos dividiremos el data set en conjunto de entrenamiento y pruebas. Todo lo anterior utilizando la libreria ***caret***
 
-```{r dataSplit, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+```{r dataSplit, echo=TRUE, fig.align='center', warning=FALSE}
 set.seed(100)
 Index <- createDataPartition(y = train$label, p = 0.7, list = FALSE)
 
@@ -163,7 +162,7 @@ tb = tb %>% mutate(Porcentaje = round(Muestras*100/sum(Muestras),2))
 rownames(tb) <- c("trainset", "testset")
 htmlTable(tb,
           caption = "Tabla 1. Conjuntos de entrenamiento y prueba.",
-          col.rgroup = c("none","#9999F7"))
+          col.rgroup = c("none",colors(3)[3]))
 ```
 
 
@@ -171,7 +170,7 @@ htmlTable(tb,
 
 Con el conjunto de entrenamiento definido vamos a entrenar los SOM, para ello utilizaremos la libreria ***kohonen***, definiendolos siguientes parametros:
 
-```{r somParam, echo=FALSE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+```{r somParam, echo=FALSE, fig.align='center', warning=FALSE}
 dim <- 10
 rlen <- 100
 alpha <- c(0.7, 0.01)
@@ -190,20 +189,20 @@ De lo anterior, tenemos que el numero de epocas es la cantidad de veces que pasa
 La grilla es la disposicion de la capa de salida, en este caso de `r dim`x`r dim` en topologia rectangular. Esto hace que reduzcamos en un `r 100-round(dim*dim*100/(ncol(train)-1), 2)`% la cantidad de datos de cada imagen.
 
 
-```{r som, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap=titleFig3}
+```{r som, echo=TRUE, fig.align='center', warning=FALSE, fig.cap=titleFig3}
 
 data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
                      normalizeDataLayers = FALSE, radius = radius,
                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
 
-plot(data.SOM, type = "changes", col = "#6633FF", shape = "straight")
+plot(data.SOM, type = "changes", col = "#6A3D9A", shape = "straight")
 ```
 
 A continuacion se muestra el codebook del modelo, que refleja como influye cada uno de los `r ncol(train)-1` pixeles a cada una de las neuronas de salida. Se observa que neuronas cercanas tienden a tener distribuciones similares.
 
 
-```{r codebook, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 4. Codebook del modelo entrenado."}
-plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(500)[seq.int(350,500,1)], shape = "straight")
+```{r codebook, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 4. Codebook del modelo entrenado."}
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(10)[10], shape = "straight")
 
 ```
 
@@ -215,7 +214,7 @@ Este no es el caso, aunque hay valores maximos, se observan variaciones de color
 
 
 
-```{r somCount, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 5. Conteo de observaciones mapeadas por cada neurona."}
+```{r somCount, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 5. Conteo de observaciones mapeadas por cada neurona."}
 plot(data.SOM, type = "counts", palette.name = colors, heatkey = TRUE, shape = "straight")
 
 ```
@@ -224,7 +223,7 @@ plot(data.SOM, type = "counts", palette.name = colors, heatkey = TRUE, shape = "
 El grafico de distancia entre neuronas vecinas es util para visualizar posibles fronteras entre zonas y tener una idea de donde se agruparian distintos grupos. En la figura se observan por lo menos 3 zonas donde se podian agrupar caracteristica, 2 en los extremos de tono mas oscuro y una separando en la diagonal de tono mas claro.
 
 
-```{r somNeighbours, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 6. Distancia entre neuronas vecinas."}
+```{r somNeighbours, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 6. Distancia entre neuronas vecinas."}
 plot(data.SOM, type = "dist.neighbours", palette.name = colors, shape = "straight")
 
 ```
@@ -233,7 +232,7 @@ plot(data.SOM, type = "dist.neighbours", palette.name = colors, shape = "straigh
 La calidad presente en el modelo se puede representar utilizando las distancia de las observaciones al codebook final, mientras menor distancia mejor representacion de las observaciones.
 
 
-```{r somQuality, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 7. Distancia entre neuronas vecinas."}
+```{r somQuality, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 7. Distancia entre neuronas vecinas."}
 plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = "straight")
 
 ```
@@ -243,108 +242,34 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 
 Los SOM son redes neuronales no supervisadas, por lo que no es posible realizar una clasificacion directa sin encontrar las zonas asociadas a las distintas clases. Para hacernos una idea de donde estan distribuidos los numeros en el mapa vamos a realizar clustering.
 
-```{r somClusterGral, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
+En la primera fila de imagenes tenemos los clusters considerando 4 metodos de aglomeracion comunes (para mayor informacion ver [clustering jerarquico en R](https://rpubs.com/mjimcua/clustering-jerarquico-en-r)).
+
+Los clusters se realizan sobre el *codebook*, ya que en este se encuentra la informacion de los datos.
+
+
+```{r somClusterGral, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion.", fig.height=17}
 # metodos disponibles
-method <- c("ward.D", "ward.D2", "single", "complete",
-            "average", "mcquitty", "median", "centroid")
-# grafico cluster en som
-par(mfrow = c(2,4))
-for (j in 1:8) {
-      som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
-      
-      plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-           main = paste0("Clusters (", method[j],")"), 
-           shape = "straight", border = NULL, pchs = ".") 
-      add.cluster.boundaries(data.SOM, som_cluster, col = "white")
+method <- c("ward.D", "complete", "average", "mcquitty")
+som_cluster <- list()
+tabCl <- list()
+for (j in 1:4) {
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
 }
-```
-
-considerando que los metodos **single**, **median** y **centroid** no nos aportan informacion util, ya que asignan a casi todas las neuronas al mismo cluster, no centraremos en el resto.
-
-
-```{r somCluster1, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
-k = 1
-par(mfrow = c(1,2))
-# seleccion un metodo en particular
-som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
-plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-     main = paste0("Clusters (", method[k],")"), 
+# grafico cluster en som
+par(mfrow = c(4,2))
+for (j in 1:4) {
+  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+     main = paste0("Clusters (", method[j],")"), 
      shape = "straight", border = NULL, 
      labels = ".")
-add.cluster.boundaries(data.SOM, som_cluster, col = "white")
-# tabla target vs cluster
-a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
-plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
+  add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
+  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+}
+
 ```
 
-```{r somCluster2, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
-k = 2
-par(mfrow = c(1,2))
-# seleccion un metodo en particular
-som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
-plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-     main = paste0("Clusters (", method[k],")"), 
-     shape = "straight", border = NULL, 
-     labels = ".")
-add.cluster.boundaries(data.SOM, som_cluster, col = "white")
-# tabla target vs cluster
-a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
-plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
-```
-
-```{r somCluster4, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
-k = 4
-par(mfrow = c(1,2))
-# seleccion un metodo en particular
-som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
-plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-     main = paste0("Clusters (", method[k],")"), 
-     shape = "straight", border = NULL, 
-     labels = ".")
-add.cluster.boundaries(data.SOM, som_cluster, col = "white")
-# tabla target vs cluster
-a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
-plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
-```
-
-```{r somCluster5, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
-k = 5
-par(mfrow = c(1,2))
-# seleccion un metodo en particular
-som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
-plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-     main = paste0("Clusters (", method[k],")"), 
-     shape = "straight", border = NULL, 
-     labels = ".")
-add.cluster.boundaries(data.SOM, som_cluster, col = "white")
-# tabla target vs cluster
-a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
-plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
-```
-
-```{r somCluster6, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Cluster con distintos metodos de alglomeracion."}
-k = 6
-par(mfrow = c(1,2))
-# seleccion un metodo en particular
-som_cluster <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[k]), k = 10)
-plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster],
-     main = paste0("Clusters (", method[k],")"), 
-     shape = "straight", border = NULL, 
-     labels = ".")
-add.cluster.boundaries(data.SOM, som_cluster, col = "white")
-# tabla target vs cluster
-a <- table(target = trainingdata$target, cluster = som_cluster[data.SOM$unit.classif])
-plot(a, col = brewer.pal(n = 12, name = "Paired"), main = "Cluster vs Numeros")
-```
-
-
-
-
-
-
-
-
-
+***Falta detalle de los clusters, se realiza una vez finalizado todo.***
 
 
 
@@ -356,10 +281,10 @@ A continuacion revisaremos como quedan distribuidas las clases (cada numero) en 
 Lo anterior se realiza, primero definiendo cual es la neurona del mapa con el mayor valor por observacion, por ejemplo, para la primera observacion la neurona con mayor valor es la 92, por lo que a esta neurona se le asigna el valor del target que en este caso es el numero 1, asi para todas las observaciones. El resultad se puede observar en la siguiente figura.
 
 
-```{r somPredTable, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 8. Distribucion de clases por neurona."}
+```{r somPredTable, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 9. Distribucion de clases por neurona."}
 som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
 dist <- table(trainingdata$target, som.prediction$unit.classif)
-plot(dist, col = "#6633FF", main = "Numeros")
+plot(dist, col = colors(3)[2], main = "Numeros")
 ```
 
 
@@ -369,20 +294,20 @@ Al realizar la correlacion entre los datos tenemos que los datos generados por e
 
 
 
-```{r somPredCor, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 9. Matriz de correlacion entre representacion de cada numero."}
+```{r somPredCor, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 10. Matriz de correlacion entre representacion de cada numero."}
 dist <- dist %>% apply(2, function(x){x/sum(x)})
 corDist <- cor(dist %>% t())
 row.names(corDist) <- paste0("N", row.names(corDist))
 colnames(corDist) <- paste0("N", colnames(corDist))
 corDist %>% 
    ggcorrplot(lab = TRUE, 
-              colors = colorRampPalette(c("#BBFF00","#6633FF","#BBFF00"))(3),
+              colors = colorRampPalette(c(colors(3)[3], colors(3)[1], colors(3)[3]))(3),
               legend.title = "Correlation")
 ```
 
 Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase se ubica en zonas relativamente diferentes del resto de las clases, esto indica que el modelo separa correctamente las caracteristicas que diferencia a cada clase.
 
-```{r somPredRep, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 10. Zonas del mapa asociadas a cada clase."}
+```{r somPredRep, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 11. Zonas del mapa asociadas a cada clase."}
 par(mfrow = c(2,5))
 
 for (j in 1:10) {
@@ -400,21 +325,15 @@ Las neuronas con menor desviacion por clase se muestran en tonos naranjo y verde
 En este caso particular als zonas con baja desviacion estan asociadas por un lado una zona grande del 9 y el 4, donde hasta un ser humano podria tener problemas e diferenciar; por otro en una zona menor asociada al 3, 5 y 8, numeros que tabien podrian llegar a ser confundidos.
 
 
-```{r somPredRepSd, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 11. Desviacion de representacion de clases por neurona.\n"}
+```{r somPredRepSd, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 12. Desviacion de representacion de clases por neurona.\n"}
 
 distSd <- dist %>% apply(2, sd)
 
 par(mfrow = c(1,1))
 plot(data.SOM, type = "property", property = distSd, main=paste0(""),
-     palette.name = colorRampPalette(c("#BBFF00","#FFAA44","#6633FF")), heatkey = FALSE, shape = "straight")
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), heatkey = FALSE, shape = "straight")
 
 ```
-
-
-
-
-
-
 
 
 
@@ -423,7 +342,7 @@ Acontinuacion comenzaremos con realizar una clasificacion utilizando el SOM entr
 Como se observa en la matriz de confusion, los numeros 4 y 9 presentan problemas
 
 
-```{r somTestClass, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+```{r somTestClass, echo=TRUE, fig.align='center', warning=FALSE}
 testSOM <- predict(data.SOM, newdata = testingdata$measurements)
 
 testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
@@ -448,14 +367,14 @@ Como los mapas autoorganizados mapean las caracteristicas de los datos de manera
 Para ello primero debemos redefinir el *target*.
 
 
-```{r newTarget, echo=TRUE, fig.align='center', warning=FALSE, cache=FALSE, comment=""}
+```{r newTarget, echo=TRUE, fig.align='center', warning=FALSE}
 label <- train$label %>% as.character() %>% as.numeric()
 label2 <- 1 - (label %% 2)
 
 tb <- data.frame(Target = head(label,10), TargetNew = head(label2,10))
 htmlTable(tb,
           caption = "Tabla 2. Equivalencia numero con paridad.",
-          col.rgroup = c("none","#9999F7"))
+          col.rgroup = c("none",colors(3)[3]))
 
 
 ```
@@ -465,17 +384,9 @@ Ahora veremos como quedan distribuidas cada clase nueva por neurona.
 
 
 
-```{r somPredTablePar, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 12. Distribucion de clases por neurona."}
+```{r somPredRepPar, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 13. Zonas del mapa asociadas a cada clase."}
 som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
 dist2 <- table(label2[Index], som.prediction$unit.classif)
-plot(dist2, col = "#6633FF", main = "Numeros")
-```
-
-
-
-
-
-```{r somPredRepPar, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 13. Zonas del mapa asociadas a cada clase."}
 dist2 <- dist2 %>% apply(2, function(x){x/sum(x)})
 
 par(mfrow = c(1,2))
@@ -490,24 +401,242 @@ for (j in 1:2) {
 
 
 
-```{r somPredPSd, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment="", fig.cap="Fig 14. Desviacion de representacion de clases por neurona."}
+```{r somPredPSd, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 14. Desviacion de representacion de clases por neurona."}
 
 dist2Sd <- dist2 %>% apply(2, sd)
 
 par(mfrow = c(1,1))
 plot(data.SOM, type = "property", property = dist2Sd, main=paste0(""),
-     palette.name = colorRampPalette(c("#BBFF00","#FFAA44","#6633FF")), 
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), 
      heatkey = FALSE, shape = "straight")
 
 ```
 
 
-```{r somTestPass, echo=TRUE, fig.align='center', warning=FALSE, cache=TRUE, comment=""}
+```{r somTestPass, echo=TRUE, fig.align='center', warning=FALSE}
 ParPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist2[,x])-1})
 
 cm2 <- confusionMatrix(data = as.factor(ParPred), reference = as.factor(label2[-Index]))
 cm2
 ```
+
+
+
+# Aplicacion II: dataset Face Expression
+## Carga de datos
+
+
+```{r loadFE, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 15. Muestras aleatorias (50) del dataset face expression"}
+
+dir = "faceExpressionDatabase/"
+listImage <- list.files(path = dir, pattern = ".bmp$")
+
+faceExp <- listImage %>% 
+      sapply(function(x){cbind(label = x %>% substr(1,1), 
+                               rotate(read.bitmap(paste0(dir, x),".bmp"), angle = 90) %>% 
+                                     matrix(nrow = 1))}) %>% t()
+
+faceExp <- data.frame(faceExp, stringsAsFactors = FALSE, row.names = NULL)
+colnames(faceExp)[1] <- "label"
+colnames(faceExp)[2:ncol(faceExp)] <- paste0("pixel", c(2:ncol(faceExp))-2)
+faceExp[,2:ncol(faceExp)] <- faceExp[,2:ncol(faceExp)] %>% sapply(as.numeric)
+
+cFE <- pegaImag(faceExp, nrow = 10, ncol = 5, dimImg = c(64, 64), random = TRUE)
+plot(Image(cFE))
+
+```
+
+
+
+
+
+
+
+
+```{r dataSplitFE, echo=TRUE, fig.align='center', warning=FALSE}
+set.seed(100)
+Index <- createDataPartition(y = faceExp$label, p = 0.7, list = FALSE)
+
+preProc <- preProcess(as.matrix(faceExp[Index,-1]), method = c("center", "scale", "nzv"))
+trainP <- predict(preProc, as.matrix(faceExp[Index,-1]))
+testP <- predict(preProc, as.matrix(faceExp[-Index,-1]))
+
+
+trainingdata <- list(measurements = trainP, 
+                     target = as.matrix(faceExp[Index,1]))
+testingdata <- list(measurements = testP, 
+                    target = as.matrix(faceExp[-Index,1]))
+
+tb <- data.frame(Muestras = c(nrow(trainingdata$measurements), nrow(testingdata$measurements)))
+tb = tb %>% mutate(Porcentaje = round(Muestras*100/sum(Muestras),2))
+rownames(tb) <- c("trainset", "testset")
+htmlTable(tb,
+          caption = "Tabla 3. Conjuntos de entrenamiento y prueba.",
+          col.rgroup = c("none",colors(3)[3]))
+```
+
+
+
+
+```{r somParamFE, echo=FALSE, fig.align='center', warning=FALSE}
+dim <- 10
+rlen <- 1000
+alpha <- c(0.95, 0.01)
+radius <- floor(dim*0.75)
+titleFig16 <- paste0("Fig 16. Entrenamiento SOM durante ", rlen, " iteraciones.")
+```
+
+
+
+
+
+
+```{r somFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap=titleFig16}
+
+data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
+                     normalizeDataLayers = FALSE, radius = radius,
+                     grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
+
+plot(data.SOM, type = "changes", col = "#6A3D9A", shape = "straight")
+```
+
+
+
+```{r codebookFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 17. Codebook del modelo entrenado."}
+plot(data.SOM, type = "codes", codeRendering = "stars", bgcol = colors(10)[10], shape = "straight")
+
+```
+
+
+
+```{r somCountFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 18. Conteo de observaciones mapeadas por cada neurona."}
+plot(data.SOM, type = "counts", palette.name = colors, heatkey = TRUE, shape = "straight")
+
+```
+
+
+
+
+
+```{r somNeighboursFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 19. Distancia entre neuronas vecinas."}
+plot(data.SOM, type = "dist.neighbours", palette.name = colors, shape = "straight")
+
+```
+
+
+
+
+
+
+```{r somQualityFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 20. Distancia entre neuronas vecinas."}
+plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = "straight")
+
+```
+
+
+## Clustering del SOM
+
+
+```{r somClusterGralFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 21. Cluster con distintos metodos de alglomeracion.", fig.height=17}
+# metodos disponibles
+method <- c("ward.D", "complete", "average", "mcquitty")
+som_cluster <- list()
+tabCl <- list()
+for (j in 1:4) {
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
+}
+# grafico cluster en som
+par(mfrow = c(4,2))
+for (j in 1:4) {
+  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+     main = paste0("Clusters (", method[j],")"), 
+     shape = "straight", border = NULL, 
+     labels = ".")
+  add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
+  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+}
+
+```
+
+***Falta detalle de los clusters, se realiza una vez finalizado todo.***
+
+## Representacion de las clases en el modelo y clasificacion
+
+
+
+```{r somPredTableFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 22. Distribucion de clases por neurona."}
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist <- table(trainingdata$target, som.prediction$unit.classif)
+plot(dist, col = colors(3)[2], main = "Numeros")
+```
+
+
+
+
+
+```{r somPredCorFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 23. Matriz de correlacion entre representacion de cada numero."}
+dist <- dist %>% apply(2, function(x){x/sum(x)})
+corDist <- cor(dist %>% t())
+row.names(corDist) <- paste0("", row.names(corDist))
+colnames(corDist) <- paste0("", colnames(corDist))
+corDist %>% 
+   ggcorrplot(lab = TRUE, 
+              colors = colorRampPalette(c(colors(3)[3], colors(3)[1], colors(3)[3]))(3),
+              legend.title = "Correlation")
+```
+
+
+```{r somPredRepFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 24. Zonas del mapa asociadas a cada clase.", fig.height=15}
+par(mfrow = c(3,5))
+
+for (j in 1:13) {
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Subject ", LETTERS[j]),
+       palette.name = colorRampPalette(colors(13)), heatkey = FALSE, shape = "straight")
+}
+
+```
+
+
+
+```{r somPredRepSdFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 25. Desviacion de representacion de clases por neurona.\n"}
+
+col0 <- c(1:(dim*dim))[-unique(som.prediction$unit.classif)]
+if(length(col0)){
+   dist <- cbind(dist, matrix(0, nrow = nrow(dist), ncol = length(col0)))
+   colnames(dist)[(ncol(dist) - length(col0) + 1):ncol(dist)] <- col0
+}
+dist <- dist[,order(as.numeric(colnames(dist)))]
+
+distSd <- dist %>% apply(2, sd)
+
+par(mfrow = c(1,1))
+plot(data.SOM, type = "property", property = distSd, main=paste0(""),
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), heatkey = FALSE, shape = "straight")
+
+```
+
+
+
+
+
+```{r somTestClassFE, echo=TRUE, fig.align='center', warning=FALSE}
+testSOM <- predict(data.SOM, newdata = testingdata$measurements)
+testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
+
+testPredTest <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist[,x])[[1]]})
+testPredTest <- LETTERS[testPredTest]
+
+cm <- confusionMatrix(data = as.factor(testPredTest), reference = as.factor(testingdata$target))
+cm
+
+```
+
+
+
+
+
+
 
 
 
