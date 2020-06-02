@@ -22,7 +22,7 @@ output:
 </style>
 
 ```{r setup, include=FALSE, warning=FALSE, fig.width=15}
-knitr::opts_chunk$set(echo = TRUE, comment="", cache = FALSE)
+knitr::opts_chunk$set(echo = TRUE, comment="", cache = TRUE)
 suppressMessages(library(EBImage))
 suppressMessages(library(caret))
 suppressMessages(library(dplyr))
@@ -110,7 +110,6 @@ train <- read.csv("train.csv")
 train$label <- factor(train$label)
 train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
 
-
 pegaImag <- function(img, nrow=25, ncol=10, colExcl = 1, dimImg = c(28, 28), random = FALSE, seed = 0){
    if(random){img <- img[sample(c(1:nrow(img)), nrow(img)),]}
    l <- 1
@@ -190,7 +189,7 @@ La grilla es la disposicion de la capa de salida, en este caso de `r dim`x`r dim
 
 
 ```{r som, echo=TRUE, fig.align='center', warning=FALSE, fig.cap=titleFig3}
-
+set.seed(0)
 data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
                      normalizeDataLayers = FALSE, radius = radius,
                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
@@ -252,19 +251,21 @@ Los clusters se realizan sobre el *codebook*, ya que en este se encuentra la inf
 method <- c("ward.D", "complete", "average", "mcquitty")
 som_cluster <- list()
 tabCl <- list()
+cl <- 10
 for (j in 1:4) {
-      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = cl)
       tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
 }
 # grafico cluster en som
+colors2 <- colorRampPalette(brewer.pal(n = 10, name = "Paired"))
 par(mfrow = c(4,2))
 for (j in 1:4) {
-  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+  plot(data.SOM, type="mapping", bgcol = colors2(cl)[som_cluster[[j]]],
      main = paste0("Clusters (", method[j],")"), 
      shape = "straight", border = NULL, 
      labels = ".")
   add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
-  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+  plot(tabCl[[j]], col = colors2(cl), main = "")
 }
 
 ```
@@ -311,7 +312,7 @@ Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase
 par(mfrow = c(2,5))
 
 for (j in 1:10) {
-  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1, "\n" ),
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Numero ", j-1, "\n" ),
        palette.name = colors, heatkey = FALSE, shape = "straight")
 }
 
@@ -426,7 +427,7 @@ cm2
 ## Carga de datos
 
 
-```{r loadFE, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 15. Muestras aleatorias (50) del dataset face expression"}
+```{r loadFE, comment="", echo=TRUE, warning=FALSE, fig.align='center',fig.cap="Fig 15. Muestras aleatorias (50) del dataset face expression", fig.asp = 0.4}
 
 dir = "faceExpressionDatabase/"
 listImage <- list.files(path = dir, pattern = ".bmp$")
@@ -441,7 +442,9 @@ colnames(faceExp)[1] <- "label"
 colnames(faceExp)[2:ncol(faceExp)] <- paste0("pixel", c(2:ncol(faceExp))-2)
 faceExp[,2:ncol(faceExp)] <- faceExp[,2:ncol(faceExp)] %>% sapply(as.numeric)
 
-cFE <- pegaImag(faceExp, nrow = 10, ncol = 5, dimImg = c(64, 64), random = TRUE)
+idxFE <- seq.int(1,60,12) %>% sapply(function(x){x+75*c(0:12)}) %>% matrix(ncol = 1)
+
+cFE <- pegaImag(faceExp[idxFE,], nrow = 13, ncol = 5, dimImg = c(64, 64), random = FALSE)
 plot(Image(cFE))
 
 ```
@@ -492,7 +495,7 @@ titleFig16 <- paste0("Fig 16. Entrenamiento SOM durante ", rlen, " iteraciones."
 
 
 ```{r somFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap=titleFig16}
-
+set.seed(0)
 data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
                      normalizeDataLayers = FALSE, radius = radius,
                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
@@ -542,19 +545,21 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 method <- c("ward.D", "complete", "average", "mcquitty")
 som_cluster <- list()
 tabCl <- list()
+clFE <- 13
 for (j in 1:4) {
-      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = clFE)
       tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
 }
 # grafico cluster en som
+colors2 <- colorRampPalette(brewer.pal(n = 10, name = "Paired"))
 par(mfrow = c(4,2))
 for (j in 1:4) {
-  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+  plot(data.SOM, type="mapping", bgcol = colors2(clFE)[som_cluster[[j]]],
      main = paste0("Clusters (", method[j],")"), 
      shape = "straight", border = NULL, 
      labels = ".")
   add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
-  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+  plot(tabCl[[j]], col = colors2(clFE), main = "")
 }
 
 ```
@@ -568,7 +573,7 @@ for (j in 1:4) {
 ```{r somPredTableFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 22. Distribucion de clases por neurona."}
 som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
 dist <- table(trainingdata$target, som.prediction$unit.classif)
-plot(dist, col = colors(3)[2], main = "Numeros")
+plot(dist, col = colors(3)[2], main = "Sujetos")
 ```
 
 
@@ -583,11 +588,11 @@ colnames(corDist) <- paste0("", colnames(corDist))
 corDist %>% 
    ggcorrplot(lab = TRUE, 
               colors = colorRampPalette(c(colors(3)[3], colors(3)[1], colors(3)[3]))(3),
-              legend.title = "Correlation")
+              legend.title = "Correlacion")
 ```
 
 
-```{r somPredRepFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 24. Zonas del mapa asociadas a cada clase.", fig.height=15}
+```{r somPredRepFE, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 24. Zonas del mapa asociadas a cada clase.", fig.height=6}
 par(mfrow = c(3,5))
 
 for (j in 1:13) {
@@ -609,10 +614,13 @@ if(length(col0)){
 dist <- dist[,order(as.numeric(colnames(dist)))]
 
 distSd <- dist %>% apply(2, sd)
+border <- c(1:(dim*dim)) %>% sapply(function(x){ifelse(sum(x==col0)>0,1,0)})
 
 par(mfrow = c(1,1))
-plot(data.SOM, type = "property", property = distSd, main=paste0(""),
-     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), heatkey = FALSE, shape = "straight")
+plot(data.SOM, type = "property", property = distSd, main="",
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])),
+     heatkey = FALSE, shape = "straight")
+add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
 
 ```
 
@@ -622,7 +630,6 @@ plot(data.SOM, type = "property", property = distSd, main=paste0(""),
 
 ```{r somTestClassFE, echo=TRUE, fig.align='center', warning=FALSE}
 testSOM <- predict(data.SOM, newdata = testingdata$measurements)
-testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
 
 testPredTest <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist[,x])[[1]]})
 testPredTest <- LETTERS[testPredTest]
@@ -634,11 +641,95 @@ cm
 
 
 
+## Representacion y clasificacion de rostros felices
+
+
+
+```{r newTargetFEHappy, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 26. Nueva clasificacion de rostros.\n"}
+num2codFace <- function(y){sapply(y, function(x) ifelse(x<10, paste0("0",x), paste0(x)))}
+
+faceHappy <- list("A"=c(3,16:27) %>% num2codFace(),
+                  "B"=c(2,4,50:52) %>% num2codFace(),
+                  "C"=c(3,52:62) %>% num2codFace(),
+                  "D"=c(1,4,14:32,71:74) %>% num2codFace(),
+                  "E"=c(1,19:32) %>% num2codFace(),
+                  "F"=c(1,4,23:33,67:74) %>% num2codFace(),
+                  "G"=c(1,24:40) %>% num2codFace(),
+                  "H"=c(1,21:31) %>% num2codFace(),
+                  "I"=c(1,26:35) %>% num2codFace(),
+                  "J"=c(1,59:72) %>% num2codFace(),
+                  "K"=c(3,64:74) %>% num2codFace(),
+                  "L"=c(3,52:63) %>% num2codFace(),
+                  "M"=c(3,54:63) %>% num2codFace())
+
+label2 <- listImage %>% 
+      sapply(function(x){label = sum(faceHappy[[substr(x,1,1)]] == substr(x,2,3))})
+
+cFEhappy <- pegaImag(faceExp[which(label2==1)[sample.int(100,30)],], 
+                     nrow = 6, ncol = 5, dimImg = c(64, 64), random = FALSE)
+cFEnohappy <- pegaImag(faceExp[which(label2==0)[sample.int(100,30)],], 
+                     nrow = 6, ncol = 5, dimImg = c(64, 64), random = FALSE)
+
+par(mfrow = c(1,2))
+plot(Image(cFEhappy))
+text(labels = "Rostros felices", x = 192, y = -16)
+# abline(v = 384, col = colors(3)[1])
+segments(x0 = 385, y0 = 3, x1 = 385, y1 = 318, col = colors(3)[1], lwd = 5)
+plot(Image(cFEnohappy))
+text(labels = "Rostros no felices", x = 192, y = -16)
+
+```
+
+
+Ahora veremos como quedan distribuidas cada clase nueva por neurona.
+
+
+
+```{r somPredRepH, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 27. Zonas del mapa asociadas a cada clase."}
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist2 <- table(label2[Index], som.prediction$unit.classif)
+dist2 <- dist2 %>% apply(2, function(x){x/sum(x)})
+
+tParc = c("No feliz", "Feliz")
+par(mfrow = c(1,2))
+for (j in 1:2) {
+  plot(data.SOM, type = "property", property = dist2[j,], main=paste0(tParc[j], "\n" ),
+       palette.name = colors, heatkey = FALSE, shape = "straight")
+  add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
+}
+
+```
 
 
 
 
+```{r somPredPSdFEHappy, echo=TRUE, fig.align='center', warning=FALSE, fig.cap="Fig 28. Desviacion de representacion de clases por neurona."}
+col0 <- c(1:(dim*dim))[-unique(som.prediction$unit.classif)]
+if(length(col0)){
+   dist2 <- cbind(dist2, matrix(0, nrow = nrow(dist2), ncol = length(col0)))
+   colnames(dist2)[(ncol(dist2) - length(col0) + 1):ncol(dist2)] <- col0
+}
+dist2 <- dist2[,order(as.numeric(colnames(dist2)))]
 
+dist2Sd <- dist2 %>% apply(2, sd)
+
+par(mfrow = c(1,1))
+plot(data.SOM, type = "property", property = dist2Sd, main=paste0(""),
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), 
+     heatkey = FALSE, shape = "straight")
+add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
+
+
+```
+
+
+```{r somTestFEHappy, echo=TRUE, fig.align='center', warning=FALSE}
+testSOM <- predict(data.SOM, newdata = testingdata$measurements)
+ExpHappyPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist2[,x])-1})
+
+cm2 <- confusionMatrix(data = as.factor(ExpHappyPred), reference = as.factor(label2[-Index]))
+cm2
+```
 
 
 

@@ -98,7 +98,6 @@ train <- read.csv("train.csv")
 train$label <- factor(train$label)
 train[,c(2:785)] <- round(train[,c(2:785)], digits = 0)
 
-
 pegaImag <- function(img, nrow=25, ncol=10, colExcl = 1, dimImg = c(28, 28), random = FALSE, seed = 0){
    if(random){img <- img[sample(c(1:nrow(img)), nrow(img)),]}
    l <- 1
@@ -203,6 +202,7 @@ La grilla es la disposicion de la capa de salida, en este caso de 10x10 en topol
 
 
 ```r
+set.seed(0)
 data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
                      normalizeDataLayers = FALSE, radius = radius,
                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
@@ -290,19 +290,21 @@ Los clusters se realizan sobre el *codebook*, ya que en este se encuentra la inf
 method <- c("ward.D", "complete", "average", "mcquitty")
 som_cluster <- list()
 tabCl <- list()
+cl <- 10
 for (j in 1:4) {
-      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = cl)
       tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
 }
 # grafico cluster en som
+colors2 <- colorRampPalette(brewer.pal(n = 10, name = "Paired"))
 par(mfrow = c(4,2))
 for (j in 1:4) {
-  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+  plot(data.SOM, type="mapping", bgcol = colors2(cl)[som_cluster[[j]]],
      main = paste0("Clusters (", method[j],")"), 
      shape = "straight", border = NULL, 
      labels = ".")
   add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
-  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+  plot(tabCl[[j]], col = colors2(cl), main = "")
 }
 ```
 
@@ -366,7 +368,7 @@ Ahora observando las zonas del mapa asociada a cada clase tenemos que cada clase
 par(mfrow = c(2,5))
 
 for (j in 1:10) {
-  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Number ", j-1, "\n" ),
+  plot(data.SOM, type = "property", property = dist[j,], main=paste0("Numero ", j-1, "\n" ),
        palette.name = colors, heatkey = FALSE, shape = "straight")
 }
 ```
@@ -425,51 +427,51 @@ Confusion Matrix and Statistics
 
           Reference
 Prediction    0    1    2    3    4    5    6    7    8    9
-         0 1166    0    9    2    0    6   17    1    4    5
-         1    0 1379   20    3   10    5    4   16   17    4
-         2   19    7 1124   44   23   35   23   39   38   14
-         3    4    2   12 1077    0   65    0    0  111   17
-         4    0    1    3    2  824    3    0   25    9  182
-         5   16    1    7   97    8  977   17    4   90    9
-         6   22    6   18    7   21   16 1175    0   11    1
-         7    1    2   30   21   25    3    0 1123   31   56
-         8    9    0   25   32    2   20    5    2  879   10
-         9    2    7    5   20  308    8    0  110   28  958
+         0 1166    0   11    3    0    7   20    3    5    7
+         1    0 1345   11    2    8    3    1   14    8    6
+         2   21    8 1147   41   29   18   28   24   26   17
+         3    9   14   19 1057   12   87    6   18  120   31
+         4    0    2    2    3  888   15    0   40    4  256
+         5   11    1    1  137    0  976   12    4   97    6
+         6   27    4   14    5   19   13 1172    0   10    2
+         7    2   12   21   14    9    2    0 1108    9   29
+         8    2   16   23   37    7    7    2   10  915   15
+         9    1    3    4    6  249   10    0   99   24  887
 
 Overall Statistics
-                                          
-               Accuracy : 0.848           
-                 95% CI : (0.8417, 0.8543)
-    No Information Rate : 0.1115          
-    P-Value [Acc > NIR] : < 2.2e-16       
-                                          
-                  Kappa : 0.8311          
-                                          
- Mcnemar's Test P-Value : NA              
+                                        
+               Accuracy : 0.8464        
+                 95% CI : (0.84, 0.8526)
+    No Information Rate : 0.1115        
+    P-Value [Acc > NIR] : < 2.2e-16     
+                                        
+                  Kappa : 0.8293        
+                                        
+ Mcnemar's Test P-Value : NA            
 
 Statistics by Class:
 
                      Class: 0 Class: 1 Class: 2 Class: 3 Class: 4 Class: 5
-Sensitivity           0.94108   0.9815  0.89705   0.8253  0.67486  0.85852
-Specificity           0.99613   0.9929  0.97867   0.9813  0.98022  0.97827
-Pos Pred Value        0.96364   0.9458  0.82284   0.8362  0.78551  0.79690
-Neg Pred Value        0.99359   0.9977  0.98851   0.9798  0.96562  0.98584
-Prevalence            0.09836   0.1115  0.09948   0.1036  0.09694  0.09035
-Detection Rate        0.09257   0.1095  0.08923   0.0855  0.06542  0.07756
-Detection Prevalence  0.09606   0.1158  0.10845   0.1023  0.08328  0.09733
-Balanced Accuracy     0.96860   0.9872  0.93786   0.9033  0.82754  0.91840
+Sensitivity           0.94108   0.9573  0.91540  0.80996  0.72727  0.85764
+Specificity           0.99507   0.9953  0.98131  0.97201  0.97169  0.97652
+Pos Pred Value        0.95417   0.9621  0.84400  0.76985  0.73388  0.78394
+Neg Pred Value        0.99358   0.9946  0.99057  0.97790  0.97075  0.98573
+Prevalence            0.09836   0.1115  0.09948  0.10360  0.09694  0.09035
+Detection Rate        0.09257   0.1068  0.09106  0.08392  0.07050  0.07748
+Detection Prevalence  0.09701   0.1110  0.10789  0.10900  0.09606  0.09884
+Balanced Accuracy     0.96808   0.9763  0.94836  0.89099  0.84948  0.91708
                      Class: 6 Class: 7 Class: 8 Class: 9
-Sensitivity           0.94682  0.85076  0.72167  0.76274
-Specificity           0.99102  0.98501  0.99077  0.95697
-Pos Pred Value        0.92013  0.86920  0.89329  0.66252
-Neg Pred Value        0.99417  0.98257  0.97081  0.97327
+Sensitivity           0.94440  0.83939  0.75123  0.70621
+Specificity           0.99172  0.99131  0.98954  0.96508
+Pos Pred Value        0.92575  0.91874  0.88491  0.69135
+Neg Pred Value        0.99391  0.98139  0.97379  0.96738
 Prevalence            0.09852  0.10480  0.09670  0.09971
-Detection Rate        0.09328  0.08916  0.06978  0.07606
-Detection Prevalence  0.10138  0.10257  0.07812  0.11480
-Balanced Accuracy     0.96892  0.91788  0.85622  0.85985
+Detection Rate        0.09305  0.08796  0.07264  0.07042
+Detection Prevalence  0.10051  0.09574  0.08209  0.10186
+Balanced Accuracy     0.96806  0.91535  0.87039  0.83564
 ```
 
-La clasificacion entrega un valor de *accuracy* igual a 0.848 y un valor de *kappa* igual a 0.8311 lo que es bastante bueno para ser un modelo no supervisado.
+La clasificacion entrega un valor de *accuracy* igual a 0.8464 y un valor de *kappa* igual a 0.8293 lo que es bastante bueno para ser un modelo no supervisado.
 
 
 
@@ -613,29 +615,29 @@ Confusion Matrix and Statistics
 
           Reference
 Prediction    0    1
-         0 5964  746
-         1  460 5426
-                                         
-               Accuracy : 0.9043         
-                 95% CI : (0.899, 0.9093)
-    No Information Rate : 0.51           
-    P-Value [Acc > NIR] : < 2.2e-16      
-                                         
-                  Kappa : 0.8083         
-                                         
- Mcnemar's Test P-Value : 2.273e-16      
-                                         
-            Sensitivity : 0.9284         
-            Specificity : 0.8791         
-         Pos Pred Value : 0.8888         
-         Neg Pred Value : 0.9218         
-             Prevalence : 0.5100         
-         Detection Rate : 0.4735         
-   Detection Prevalence : 0.5327         
-      Balanced Accuracy : 0.9038         
-                                         
-       'Positive' Class : 0              
-                                         
+         0 5934  701
+         1  490 5471
+                                          
+               Accuracy : 0.9054          
+                 95% CI : (0.9002, 0.9105)
+    No Information Rate : 0.51            
+    P-Value [Acc > NIR] : < 2.2e-16       
+                                          
+                  Kappa : 0.8107          
+                                          
+ Mcnemar's Test P-Value : 1.165e-09       
+                                          
+            Sensitivity : 0.9237          
+            Specificity : 0.8864          
+         Pos Pred Value : 0.8943          
+         Neg Pred Value : 0.9178          
+             Prevalence : 0.5100          
+         Detection Rate : 0.4711          
+   Detection Prevalence : 0.5268          
+      Balanced Accuracy : 0.9051          
+                                          
+       'Positive' Class : 0               
+                                          
 ```
 
 
@@ -659,7 +661,9 @@ colnames(faceExp)[1] <- "label"
 colnames(faceExp)[2:ncol(faceExp)] <- paste0("pixel", c(2:ncol(faceExp))-2)
 faceExp[,2:ncol(faceExp)] <- faceExp[,2:ncol(faceExp)] %>% sapply(as.numeric)
 
-cFE <- pegaImag(faceExp, nrow = 10, ncol = 5, dimImg = c(64, 64), random = TRUE)
+idxFE <- seq.int(1,60,12) %>% sapply(function(x){x+75*c(0:12)}) %>% matrix(ncol = 1)
+
+cFE <- pegaImag(faceExp[idxFE,], nrow = 13, ncol = 5, dimImg = c(64, 64), random = FALSE)
 plot(Image(cFE))
 ```
 
@@ -734,6 +738,7 @@ Tabla 3. Conjuntos de entrenamiento y prueba.</td></tr>
 
 
 ```r
+set.seed(0)
 data.SOM <- supersom(trainingdata$measurements, rlen = rlen, alpha = alpha, mode = "pbatch",
                      normalizeDataLayers = FALSE, radius = radius,
                      grid = somgrid(xdim =  dim, ydim =  dim, topo = "rectangular"))
@@ -809,19 +814,21 @@ plot(data.SOM, type = "quality", palette.name = colors, heatkey = TRUE, shape = 
 method <- c("ward.D", "complete", "average", "mcquitty")
 som_cluster <- list()
 tabCl <- list()
+clFE <- 13
 for (j in 1:4) {
-      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = 10)
+      som_cluster[[j]] <- cutree(hclust(dist(data.SOM$codes[[1]]), method = method[j]), k = clFE)
       tabCl[[j]] <- table(target = trainingdata$target, cluster = som_cluster[[j]][data.SOM$unit.classif])
 }
 # grafico cluster en som
+colors2 <- colorRampPalette(brewer.pal(n = 10, name = "Paired"))
 par(mfrow = c(4,2))
 for (j in 1:4) {
-  plot(data.SOM, type="mapping", bgcol = brewer.pal(n = 12, name = "Paired")[som_cluster[[j]]],
+  plot(data.SOM, type="mapping", bgcol = colors2(clFE)[som_cluster[[j]]],
      main = paste0("Clusters (", method[j],")"), 
      shape = "straight", border = NULL, 
      labels = ".")
   add.cluster.boundaries(data.SOM, som_cluster[[j]], col = "white", lwd = 3)
-  plot(tabCl[[j]], col = brewer.pal(n = 12, name = "Paired"), main = "")
+  plot(tabCl[[j]], col = colors2(clFE), main = "")
 }
 ```
 
@@ -840,7 +847,7 @@ for (j in 1:4) {
 ```r
 som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
 dist <- table(trainingdata$target, som.prediction$unit.classif)
-plot(dist, col = colors(3)[2], main = "Numeros")
+plot(dist, col = colors(3)[2], main = "Sujetos")
 ```
 
 <div class="figure" style="text-align: center">
@@ -861,7 +868,7 @@ colnames(corDist) <- paste0("", colnames(corDist))
 corDist %>% 
    ggcorrplot(lab = TRUE, 
               colors = colorRampPalette(c(colors(3)[3], colors(3)[1], colors(3)[3]))(3),
-              legend.title = "Correlation")
+              legend.title = "Correlacion")
 ```
 
 <div class="figure" style="text-align: center">
@@ -897,10 +904,13 @@ if(length(col0)){
 dist <- dist[,order(as.numeric(colnames(dist)))]
 
 distSd <- dist %>% apply(2, sd)
+border <- c(1:(dim*dim)) %>% sapply(function(x){ifelse(sum(x==col0)>0,1,0)})
 
 par(mfrow = c(1,1))
-plot(data.SOM, type = "property", property = distSd, main=paste0(""),
-     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), heatkey = FALSE, shape = "straight")
+plot(data.SOM, type = "property", property = distSd, main="",
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])),
+     heatkey = FALSE, shape = "straight")
+add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
 ```
 
 <div class="figure" style="text-align: center">
@@ -917,7 +927,6 @@ plot(data.SOM, type = "property", property = distSd, main=paste0(""),
 
 ```r
 testSOM <- predict(data.SOM, newdata = testingdata$measurements)
-testSOMvalue <- testSOM$predictions[[1]] %*% t(testSOM$unit.predictions[[1]])
 
 testPredTest <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist[,x])[[1]]})
 testPredTest <- LETTERS[testPredTest]
@@ -989,11 +998,142 @@ Balanced Accuracy     1.00000
 
 
 
+## Representacion y clasificacion de rostros felices
+
+
+
+
+```r
+num2codFace <- function(y){sapply(y, function(x) ifelse(x<10, paste0("0",x), paste0(x)))}
+
+faceHappy <- list("A"=c(3,16:27) %>% num2codFace(),
+                  "B"=c(2,4,50:52) %>% num2codFace(),
+                  "C"=c(3,52:62) %>% num2codFace(),
+                  "D"=c(1,4,14:32,71:74) %>% num2codFace(),
+                  "E"=c(1,19:32) %>% num2codFace(),
+                  "F"=c(1,4,23:33,67:74) %>% num2codFace(),
+                  "G"=c(1,24:40) %>% num2codFace(),
+                  "H"=c(1,21:31) %>% num2codFace(),
+                  "I"=c(1,26:35) %>% num2codFace(),
+                  "J"=c(1,59:72) %>% num2codFace(),
+                  "K"=c(3,64:74) %>% num2codFace(),
+                  "L"=c(3,52:63) %>% num2codFace(),
+                  "M"=c(3,54:63) %>% num2codFace())
+
+label2 <- listImage %>% 
+      sapply(function(x){label = sum(faceHappy[[substr(x,1,1)]] == substr(x,2,3))})
+
+cFEhappy <- pegaImag(faceExp[which(label2==1)[sample.int(100,30)],], 
+                     nrow = 6, ncol = 5, dimImg = c(64, 64), random = FALSE)
+cFEnohappy <- pegaImag(faceExp[which(label2==0)[sample.int(100,30)],], 
+                     nrow = 6, ncol = 5, dimImg = c(64, 64), random = FALSE)
+
+par(mfrow = c(1,2))
+plot(Image(cFEhappy))
+text(labels = "Rostros felices", x = 192, y = -16)
+# abline(v = 384, col = colors(3)[1])
+segments(x0 = 385, y0 = 3, x1 = 385, y1 = 318, col = colors(3)[1], lwd = 5)
+plot(Image(cFEnohappy))
+text(labels = "Rostros no felices", x = 192, y = -16)
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/newTargetFEHappy-1.png" alt="Fig 26. Nueva clasificacion de rostros.
+"  />
+<p class="caption">Fig 26. Nueva clasificacion de rostros.
+</p>
+</div>
+
+
+Ahora veremos como quedan distribuidas cada clase nueva por neurona.
+
+
+
+
+```r
+som.prediction <- predict(data.SOM, newdata = trainingdata$measurements)
+dist2 <- table(label2[Index], som.prediction$unit.classif)
+dist2 <- dist2 %>% apply(2, function(x){x/sum(x)})
+
+tParc = c("No feliz", "Feliz")
+par(mfrow = c(1,2))
+for (j in 1:2) {
+  plot(data.SOM, type = "property", property = dist2[j,], main=paste0(tParc[j], "\n" ),
+       palette.name = colors, heatkey = FALSE, shape = "straight")
+  add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
+}
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredRepH-1.png" alt="Fig 27. Zonas del mapa asociadas a cada clase."  />
+<p class="caption">Fig 27. Zonas del mapa asociadas a cada clase.</p>
+</div>
 
 
 
 
 
+```r
+col0 <- c(1:(dim*dim))[-unique(som.prediction$unit.classif)]
+if(length(col0)){
+   dist2 <- cbind(dist2, matrix(0, nrow = nrow(dist2), ncol = length(col0)))
+   colnames(dist2)[(ncol(dist2) - length(col0) + 1):ncol(dist2)] <- col0
+}
+dist2 <- dist2[,order(as.numeric(colnames(dist2)))]
+
+dist2Sd <- dist2 %>% apply(2, sd)
+
+par(mfrow = c(1,1))
+plot(data.SOM, type = "property", property = dist2Sd, main=paste0(""),
+     palette.name = colorRampPalette(c(colors(3)[3], colors(3)[2], colors(3)[1])), 
+     heatkey = FALSE, shape = "straight")
+add.cluster.boundaries(data.SOM, border, col = colors2(24)[14], lwd = 3)
+```
+
+<div class="figure" style="text-align: center">
+<img src="SOM_MNIST_clasification_files/figure-html/somPredPSdFEHappy-1.png" alt="Fig 28. Desviacion de representacion de clases por neurona."  />
+<p class="caption">Fig 28. Desviacion de representacion de clases por neurona.</p>
+</div>
+
+
+
+```r
+testSOM <- predict(data.SOM, newdata = testingdata$measurements)
+ExpHappyPred <- testSOM$unit.classif %>% sapply(function(x) {which.max(dist2[,x])-1})
+
+cm2 <- confusionMatrix(data = as.factor(ExpHappyPred), reference = as.factor(label2[-Index]))
+cm2
+```
+
+```
+Confusion Matrix and Statistics
+
+          Reference
+Prediction   0   1
+         0 227  12
+         1   6  41
+                                          
+               Accuracy : 0.9371          
+                 95% CI : (0.9024, 0.9623)
+    No Information Rate : 0.8147          
+    P-Value [Acc > NIR] : 1.931e-09       
+                                          
+                  Kappa : 0.782           
+                                          
+ Mcnemar's Test P-Value : 0.2386          
+                                          
+            Sensitivity : 0.9742          
+            Specificity : 0.7736          
+         Pos Pred Value : 0.9498          
+         Neg Pred Value : 0.8723          
+             Prevalence : 0.8147          
+         Detection Rate : 0.7937          
+   Detection Prevalence : 0.8357          
+      Balanced Accuracy : 0.8739          
+                                          
+       'Positive' Class : 0               
+                                          
+```
 
 
 
